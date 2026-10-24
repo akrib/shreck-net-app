@@ -651,6 +651,150 @@ func _run() -> void:
 	_ok(FileAccess.file_exists(vault + "/" + nid_rel) and app.index.path_of_name(nid_rel.get_file().get_basename()) == nid_rel, "note restaurée à sa place")
 	_ok(cs._trash_head.text == "Corbeille (0)", "corbeille vide")
 
+	# --- « + » des fiches : membre d'une faction (élément dans « Mes notes » du jour), membre d'un clan (sa fiche)
+	main.open_note("Groupes/Cercle des Lanternes.md")
+	await process_frame
+	var find_btn := func(text: String) -> Button:
+		for b in note.find_children("*", "Button", true, false):
+			if str(b.text) == text and not b.is_queued_for_deletion():
+				return b
+		return null
+	var members_text := func() -> String:
+		var out := PackedStringArray()
+		for fc in note.find_children("*", "FoldableContainer", true, false):
+			if str(fc.title).begins_with("Membres connus") and not fc.is_queued_for_deletion():
+				for b in fc.find_children("*", "Button", true, false):
+					out.append(str(b.text))
+		return "\n".join(out)
+	var plus_btn: Button = find_btn.call("+ Membre")
+	_ok(plus_btn != null and members_text.call().contains("Victor Morel — membre"), "fiche d'une faction : « + Membre », Victor Morel membre d'après une source")
+	plus_btn.pressed.emit()
+	await process_frame
+	var dlg = main._overlays[-1]
+	_ok(dlg.has_method("dest_path") and dlg.dest_path() == "" and not dlg.property_mode(), "fenêtre d'ajout : « Mes notes du jour » par défaut")
+	dlg._a = "Élise Varga"
+	dlg._refresh()
+	_ok(dlg._text.text == "[[Élise Varga]] est membre de [[Cercle des Lanternes]]." and not dlg._go.disabled, "énoncé proposé : " + dlg._text.text)
+	dlg._apply()
+	await process_frame
+	var day: Dictionary = app.day_notes(false)
+	_ok(str(day.rel) != "" and _read(vault, day.rel).contains("[relation:: membre_de] [de:: [[Élise Varga]]] [vers:: [[Cercle des Lanternes]]] ^el-"), "écrit dans « %s »" % day.name)
+	_ok(main.current == "note" and note._status.text.begins_with("Ajouté dans") and members_text.call().contains("Élise Varga — membre"), "la fiche relue montre le nouveau membre : " + note._status.text)
+	main.open_note("Groupes/Toreador.md")
+	await process_frame
+	var dlg2 = note.open_add({"kind": "membre"})
+	await process_frame
+	dlg2._a = "Armand Lescure"
+	dlg2._refresh()
+	_ok(dlg2.property_mode() and dlg2._preview.text.contains("clan: \"[[Toreador]]\""), "clan : écrit dans la fiche du personnage")
+	dlg2._apply()
+	await process_frame
+	_ok(_read(vault, "Personnages/Armand Lescure.md").contains("clan: \"[[Toreador]]\"") and members_text.call().contains("Armand Lescure — clan (fiche)"), "Armand Lescure rejoint le clan Toreador")
+
+	# une lignée : on y entre comme dans une faction, le clan de la fiche ne change pas
+	var lg: Dictionary = app.create_stub("groupe", "Toreador antitribu", "lignee")
+	main.open_note(lg.rel)
+	await process_frame
+	var dlg3 = note.open_add({"kind": "membre"})
+	await process_frame
+	dlg3._a = "Victor Morel"
+	dlg3._refresh()
+	_ok(not dlg3.property_mode() and dlg3._text.text == "[[Victor Morel]] est membre de [[Toreador antitribu]].", "lignée : un élément « est membre de », pas le clan de la fiche")
+	dlg3._apply()
+	await process_frame
+	_ok(_read(vault, "Personnages/Victor Morel.md").contains("clan: \"[[Toreador]]\"") and members_text.call().contains("Victor Morel — membre"), "Victor Morel reste Toreador, membre de la lignée")
+
+	# --- « + » d'une fiche de personnage : nomination (élément + titres), information libre
+	main.open_note("Personnages/Victor Morel.md")
+	await process_frame
+	_ok(["+ Statut", "+ Discipline", "+ Relation", "+ Information"].all(func(t): return find_btn.call(t) != null), "fiche de personnage : + Statut, + Discipline, + Relation, + Information")
+	(find_btn.call("+ Statut") as Button).pressed.emit()
+	await process_frame
+	var dst = main._overlays[-1]
+	dst._kind_opt.select(2)
+	dst._a = "Armand Lescure"
+	dst._qual.text = "Prévôt de Valombre"
+	dst._refresh()
+	_ok(dst._text.text == "[[Armand Lescure]] nomme [[Victor Morel]] Prévôt de Valombre." and dst._preview.text.contains("titres : Prévôt de Valombre"), "nomination : énoncé et titre proposés")
+	dst._apply()
+	await process_frame
+	_ok(_read(vault, day.rel).contains("[relation:: nomme] [de:: [[Armand Lescure]]] [vers:: [[Victor Morel]]] [qualificatif:: Prévôt de Valombre] ^el-")
+		and _read(vault, "Personnages/Victor Morel.md").contains("  - Prévôt de Valombre"), "nomination écrite dans mes notes, poste ajouté aux titres")
+	var dmn = note.open_add({"kind": "mention"})
+	await process_frame
+	_ok(dmn._go.disabled, "information vide : « Ajouter » grisé")
+	dmn._text.text = "[[Victor Morel]] boite depuis l'incendie."
+	dmn._date.text = "2026-10~"
+	dmn._refresh()
+	dmn._apply()
+	await process_frame
+	_ok(_read(vault, day.rel).contains("- [[Victor Morel]] boite depuis l'incendie. [nature:: rapporte] [credibilite:: 3] [date_faits:: 2026-10~] ^el-")
+		and note._status.text.begins_with("Ajouté dans"), "information libre écrite, fiche relue")
+
+	# --- « + » : présence à une soirée (présents), faveur et indice préremplis, domaine
+	var last_soiree: Dictionary = app.index.list_by_type("soiree", 1, true)[0]
+	var dpr = note.open_add({"kind": "presence"})
+	await process_frame
+	_ok(dpr.property_mode() and not dpr._info_part.visible, "présence vue : écrite dans la soirée, sans source à choisir")
+	dpr._a = str(last_soiree.name)
+	dpr._refresh()
+	dpr._apply()
+	await process_frame
+	_ok(_read(vault, last_soiree.path).contains("  - \"[[Victor Morel]]\""), "Victor Morel ajouté aux présents de « %s » : %s" % [last_soiree.name, note._status.text])
+	var dpr2 = note.open_add({"kind": "presence"})
+	await process_frame
+	dpr2._how.select(2)
+	dpr2._how.item_selected.emit(2)
+	dpr2._a = "2026-10-10 Valombre - Assemblée"
+	dpr2._refresh()
+	_ok(not dpr2.property_mode() and dpr2._info_part.visible and dpr2._text.text == "[[Victor Morel]] était présent à [[2026-10-10 Valombre - Assemblée]].", "présence rapportée : un élément « était présent à »")
+	main.close_overlay(dpr2)
+	await process_frame
+	(find_btn.call("+ Faveur") as Button).pressed.emit()
+	await process_frame
+	_ok(main.current == "nouvelle" and main.screens.nouvelle.editors.debiteur.get_value() == "[[Victor Morel]]", "« + Faveur » : formulaire prérempli (débiteur)")
+	main.open_note("Personnages/Victor Morel.md")
+	await process_frame
+	(find_btn.call("+ Indice") as Button).pressed.emit()
+	await process_frame
+	_ok(main.current == "nouvelle" and main.screens.nouvelle.editors.sujets.get_value() == ["[[Victor Morel]]"], "« + Indice » : sujet prérempli")
+	main.open_note("Domaines/Valombre.md")
+	await process_frame
+	_ok(["+ Personnage", "+ Soirée", "+ Lieu", "+ Faveur"].all(func(t): return find_btn.call(t) != null), "domaine : + Personnage, + Soirée, + Lieu, + Faveur")
+	var drt = note.open_add({"kind": "rattache"})
+	await process_frame
+	drt._a = "Armand Lescure"
+	drt._refresh()
+	_ok(drt.property_mode() and drt._preview.text == "La fiche « Armand Lescure » le dit déjà.", "rattacher : " + drt._preview.text)
+	main.close_overlay(drt)
+	await process_frame
+
+	# --- filiations : vide, puis « + Infant » depuis l'écran ; clans et lignées
+	main.open_note("Personnages/Victor Morel.md")
+	await process_frame
+	(find_btn.call("Filiation") as Button).pressed.emit()
+	await process_frame
+	var fl = main.screens.filiations
+	_ok(main.current == "filiations" and fl.tree.node_count() == 0 and fl._info.text.begins_with("Aucun sire ni infant"), "filiations : aucun lien dans le coffre d'exemple")
+	fl._add("Victor Morel", 0)
+	await process_frame
+	var dinf = main._overlays[-1]
+	dinf._a = "Élise Varga"
+	dinf._refresh()
+	_ok(dinf._text.text == "[[Victor Morel]] est le sire de [[Élise Varga]]." and dinf._title() == "Infant de « Victor Morel »", "« + Infant » : relation et sens préréglés")
+	dinf._apply()
+	await process_frame
+	_ok(fl.tree.node_count() == 2 and fl._fams.size() == 1 and str(fl._fams[0].label) == "Lignage de Victor Morel" and fl.tree.selected == "victor morel",
+		"l'arbre se redessine : %s" % fl._info.text.left(60))
+	fl.find("élise")
+	_ok(fl.tree.selected == "élise varga" and fl._side.get_child_count() > 3, "recherche : Élise Varga choisie, son sire affiché")
+	main.open_note("Groupes/Toreador.md")
+	await process_frame
+	(find_btn.call("Clans et lignées") as Button).pressed.emit()
+	await process_frame
+	_ok(main.current == "filiations" and fl.tab == "lignees" and fl.tree.selected == "clan:Toreador" and fl.tree.pos.has("lig:Toreador antitribu"),
+		"clans et lignées : Toreador choisi ; la lignée sans clan apparaît sous « Clan inconnu »")
+
 	# --- diagnostic, vérification, reconstruction
 	main.show_screen("diag")
 	app.start_verify()
@@ -659,7 +803,7 @@ func _run() -> void:
 	_ok(main.screens.diag._report.text.contains("identique à l'index : OUI"), "vérification : reconstruction identique")
 	app.start_rebuild()
 	await _wait_jobs(app)
-	_ok(app.index != null and app.index.stats().files == 29, "reconstruction : 29 notes (%d)" % app.index.stats().files)
+	_ok(app.index != null and app.index.stats().files == 31, "reconstruction : 31 notes, avec « Mes notes » du jour et la lignée (%d)" % app.index.stats().files)
 	# --- plein écran : réglage mémorisé, F11 bascule
 	var was: bool = main.is_fullscreen()
 	main.toggle_fullscreen()

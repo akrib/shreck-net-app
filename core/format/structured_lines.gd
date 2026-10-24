@@ -239,6 +239,26 @@ static func assign_missing_ids(body: String, gen: Callable) -> Dictionary:
 	return {"body": "\n".join(lines), "added": added}
 
 
+## Ordre des champs d'une ligne d'élément écrite par l'application (§10.2).
+const ELEMENT_FIELDS := ["nature", "credibilite", "par", "date_faits", "relation", "de", "vers", "discipline",
+	"qualificatif", "jusqu_au"]
+
+
+## Ligne d'élément, sans identifiant : « - énoncé [clé:: valeur]… ». Les champs
+## vides sont omis ; les crochets sont retirés du qualificatif (texte libre).
+static func element_line(text: String, fields: Dictionary) -> String:
+	var line := "- " + text.strip_edges().replace("\r", " ").replace("\n", " ")
+	for k in ELEMENT_FIELDS:
+		var v: Variant = fields.get(k)
+		if v == null or str(v).strip_edges() == "":
+			continue
+		var s := str(v).strip_edges()
+		if k == "qualificatif":
+			s = s.replace("[", "").replace("]", "")
+		line += " [%s:: %s]" % [k, s]
+	return line
+
+
 ## Ajoute une ligne à la fin de la section « ## Éléments » (créée si absente).
 ## `body` utilise "\n". Le reste du corps est conservé tel quel.
 static func append_to_section(body: String, section_title: String, item_line: String) -> String:

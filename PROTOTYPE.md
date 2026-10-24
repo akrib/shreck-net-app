@@ -1,12 +1,68 @@
-# Nosferatu Intelligence — version 0.16
+# Nosferatu Intelligence — version 0.18
 
 *24 octobre 2026 · Godot 4.7.x · format du coffre v1.5 · version PC*
 
-La 0.16 apporte les **statistiques** des personnages et des informations, et le statut **torpeur** (format 1.5). Elle accompagne le lot 6, les 4 604 fiches tirées du registre des personnages. Aucune note existante n'est concernée.
+La 0.18 dessine les **filiations** en arbres (sires et infants, clans et lignées). Elle corrige aussi l'ajout d'un membre à une lignée : il ne touche plus au clan de la fiche. Aucune note existante n'est concernée.
 
 ---
 
-## 1. Ce qui change dans la 0.16 : les statistiques
+## 1. Ce qui change dans la 0.18 : filiations, lignées
+
+**Lignées : on y entre comme dans une faction**
+- *+ Membre* sur une lignée note une information « est membre de » (ou « dirige ») dans la source choisie. Le `clan` de la fiche du personnage reste son clan.
+- Seuls le clan et la secte s'écrivent encore dans la fiche du personnage.
+- Les anciennes fiches qui portent une lignée dans leur clan apparaissent comme « lignée (fiche) » dans les membres.
+
+**L'écran Filiations** (Enquête → *Filiations*, bouton *Filiation* d'une fiche de personnage, *Clans et lignées* d'une fiche de clan ou de lignée)
+- **Sires et infants** : chaque lignage en arbre, du plus ancien aux infants, génération par génération.
+  - Les liens viennent de la propriété *Sire* des fiches, des informations « est le sire de » et des indices de même relation. Une rumeur jugée improbable (crédibilité 5) et un indice réfuté ne comptent pas.
+  - Trait plein : lien sûr (fiche, crédibilité 1 à 3) ; pointillés : incertain ; rouge : un second sire pour le même infant (à trancher).
+  - Une personne choisie montre, à droite, ses sires et ses infants, et la note d'où vient chaque lien (un appui l'ouvre).
+  - *+ Sire* et *+ Infant* notent un lien « est le sire de » dans la source choisie (la fenêtre des « + »).
+  - Une case : † pour une mort finale ; grisée si morte ou disparue ; la couleur du bord suit le clan.
+- **Clans et lignées** : chaque clan, ses lignées (rattachées par la propriété *Clan* de la lignée) et leurs membres connus (douze au plus dans l'arbre, tous à droite). Les lignées sans clan connu sont réunies sous « Clan inconnu ».
+- Recherche d'une personne, d'un clan ou d'une lignée ; *Voir tout* ; molette pour zoomer, glisser pour se déplacer, double appui pour ouvrir une fiche.
+
+**Sur votre coffre** (6 660 notes) : 18 lignages et 22 liens sire → infant, le plus grand étant celui du Comte Francois Aubusson de La Feuillade (4 personnes sur 3 générations) ; 18 clans et 21 lignées, dont deux sans clan connu (Filles de la Cacophonie, Gargouilles). Le calcul prend environ 0,5 s.
+
+## 2. La 0.17 : les « + » des fiches
+
+**Membres d'un groupe**
+- La section *Membres connus* liste désormais :
+  - les personnages dont la fiche porte ce clan ou cette secte ;
+  - ceux que vos sources disent membres du groupe, ou à sa tête (éléments et indices « est membre de », « dirige »).
+- Avant, une faction, une coterie ou une organisation restait vide, même quand une source citait ses membres.
+- **+ Membre** :
+  - clan, lignée ou secte : le clan ou la secte s'écrit dans la fiche du personnage. Si sa fiche dit autre chose, la fenêtre le signale avant de remplacer ;
+  - faction, coterie, meute, organisation : une information « est membre de » ou « dirige », écrite dans la source de votre choix.
+
+**Où va ce qu'on ajoute**
+- Une information s'écrit **une seule fois**, dans une soirée ou une source (principe 3 du format). La fiche la retrouve par ses rétroliens.
+- *D'où le savez-vous ?* propose :
+  - **Mes notes du jour**, par défaut : la source « 2026-10-24 Note personnelle - Mes notes », créée au premier ajout du jour ;
+  - les dernières soirées et les dernières sources ouvertes ;
+  - *Autre soirée ou source…*, pour en choisir une autre.
+- La nature (observé, rapporté…), la crédibilité et la date des faits se règlent comme dans une soirée.
+- La fenêtre montre la ligne exacte qui sera écrite, et où. Rien n'est écrit avant *Ajouter*.
+
+**Les « + » de chaque fiche**
+
+| Section | Bouton | Ce qui est écrit |
+|---|---|---|
+| Membres connus (groupe) | + Membre | clan ou secte dans la fiche du personnage ; sinon une information |
+| Statut | + Statut | une reconnaissance, un sobriquet ou une nomination ; une nomination peut aussi ajouter le poste aux titres de la fiche |
+| Disciplines | + Discipline | une information avec la discipline constatée |
+| Où était-il ? | + Présence | vu(e) : les présents de la soirée ; sans certitude : ses présents incertains ; rapporté : une information « était présent à » |
+| Relations connues | + Relation | allié, ennemi, membre, sire, mentor, contact… dans un sens ou dans l'autre |
+| Faveurs | + Faveur | le formulaire d'une nouvelle faveur, la personne en débiteur |
+| Indices, événements et dossiers | + Indice | le formulaire d'un nouvel indice, la fiche en sujet |
+| Ce que disent les sources | + Information | une phrase libre qui cite la fiche |
+| Domaine | + Personnage, + Soirée, + Lieu, + Faveur | le domaine dans la fiche du personnage ; sinon le formulaire prérempli |
+
+- Après l'ajout, la fiche est relue : le nouveau membre, la relation ou la présence apparaît aussitôt, avec un message qui dit où c'est écrit.
+- Une fiche en cours de modification est d'abord enregistrée.
+
+## 3. La 0.16 : les statistiques
 
 **Où** : Enquête → *Statistiques*. Deux onglets, *Personnages* et *Informations*. Rien n'est écrit dans le coffre ; *Recalculer* relit l'index après une synchronisation.
 
@@ -55,7 +111,7 @@ La 0.16 apporte les **statistiques** des personnages et des informations, et le 
 - `valider.py` l'accepte, et la liste de choix de la fiche le propose.
 - La préparation de séance écarte les personnes en torpeur, comme les disparus et les morts.
 
-## 2. La 0.15 : les hypothèses concurrentes
+## 4. La 0.15 : les hypothèses concurrentes
 
 **La méthode**
 - On ne retient pas l'hypothèse qui a le plus de confirmations, mais celle qui est **la moins contredite**.
@@ -88,7 +144,7 @@ La 0.16 apporte les **statistiques** des personnages et des informations, et le 
 - Vos dossiers n'ont pas encore d'indices. Ouvrez-en un, par exemple « Qu'est-ce que l'hématothèque, et qui y a accès ? ».
 - Écrivez deux ou trois hypothèses avec *+ Hypothèse*, puis jugez les éléments que vous ajoutez.
 
-## 3. La 0.14 : à trancher, questions pour la soirée
+## 5. La 0.14 : à trancher, questions pour la soirée
 
 **Enquête → À trancher** (nouvel onglet)
 
@@ -130,7 +186,7 @@ L'application repère ce que vos notes disent de contradictoire :
 - Le curseur est dans le premier champ (le nom d'un personnage) ; **Entrée** crée la note.
 - « À compléter » n'apparaît qu'après une première saisie ou un essai de création.
 
-## 4. La 0.13 : lisibilité, suite
+## 6. La 0.13 : lisibilité, suite
 
 **Recherche au clavier** (Fiches)
 - **Ctrl+F**, quelques lettres, puis **Entrée** : la première fiche trouvée s'ouvre.
@@ -160,7 +216,7 @@ L'application repère ce que vos notes disent de contradictoire :
 - Sur votre coffre, pour Grenoble : 5 alertes au lieu de 21, et 67 personnes probables au lieu de 422.
 - *Son rapport* ouvre directement le rapport de la dernière soirée.
 
-## 5. La 0.12 : corbeille et lisibilité
+## 7. La 0.12 : corbeille et lisibilité
 
 **Supprimer une note**
 - Bouton **Supprimer…**, en rouge, sur une note. La confirmation dit combien de notes la citent encore : leurs liens mèneront à une note absente.
@@ -212,7 +268,7 @@ L'application repère ce que vos notes disent de contradictoire :
   - *Compte rendu* ouvre la source.
 - Elles ne sont plus répétées dans les informations.
 
-## 6. La 0.11 : les alibis
+## 8. La 0.11 : les alibis
 
 L'application calcule **où était chacun**, d'après vos notes. Elle n'écrit rien.
 
@@ -263,7 +319,7 @@ L'application calcule **où était chacun**, d'après vos notes. Elle n'écrit r
 - Donnez une date au jour près quand vous la connaissez.
 - Pour un témoignage (« X était aux docks ce soir-là »), ajoutez un élément « était présent à » avec la date des faits.
 
-## 7. La 0.10 : la fiabilité calculée des informateurs
+## 9. La 0.10 : la fiabilité calculée des informateurs
 
 L'application **propose** la lettre A–F d'un personnage comme informateur, d'après ce qu'il a affirmé et ce qu'il en est advenu. Elle n'écrit rien sans votre accord.
 
@@ -298,7 +354,7 @@ L'application **propose** la lettre A–F d'un personnage comme informateur, d'a
 - Dans **Enquête → Informateurs** : tous les informateurs. Ceux dont la lettre proposée diffère de la fiche viennent d'abord, en or.
 - **Appliquer** écrit la lettre dans la fiche (propriété `fiabilite`), qui sert ensuite aux chemins probables.
 
-## 8. La 0.9 : les alertes
+## 10. La 0.9 : les alertes
 
 **Où les voir**
 - Sur l'**accueil**, une carte rouge : le nombre d'alertes, dont les urgentes, et les cinq premières.
@@ -332,7 +388,7 @@ L'application **propose** la lettre A–F d'un personnage comme informateur, d'a
 - Ce qui a été vu est retenu sur chaque ordinateur ; la note n'est pas modifiée pour cela.
 - **Ne plus surveiller** retire l'étiquette.
 
-## 9. La 0.8 : version PC, plein écran
+## 11. La 0.8 : version PC, plein écran
 
 **PC seulement, en plein écran**
 - L'application démarre en plein écran. **F11**, ou Réglages → *Plein écran / fenêtre*, bascule ; le choix est retenu.
@@ -355,7 +411,7 @@ L'application **propose** la lettre A–F d'un personnage comme informateur, d'a
 - Point plein : date exacte. Cercle : date approximative ou incertaine. Un trait sur la ligne marque le changement d'année.
 - Les dates en tête des noms de notes (« 2026-10-12 Gazette… ») ne sont plus affichées dans la chronologie.
 
-## 10. Rappel de la 0.7
+## 12. Rappel de la 0.7
 
 **Listes « nature » des sources**
 - Chaque nature est précédée de sa fiabilité par défaut : « B · Note personnelle », « C · Discord », « F · Analyse »…
@@ -440,7 +496,7 @@ Tout est facultatif, et aucune note existante ne change :
 
 `valider.py` les connaît.
 
-## 11. Installation
+## 13. Installation
 
 1. Décompressez l'archive à la place de l'ancienne.
 2. Ouvrez `project.godot` dans Godot 4.7.x.
@@ -449,21 +505,20 @@ Tout est facultatif, et aucune note existante ne change :
 
 L'index ne change pas de version : pas de reconstruction au premier lancement.
 
-## 12. Ce que j'ai vérifié de mon côté
+## 14. Ce que j'ai vérifié de mon côté
 
-- **704 vérifications automatiques** réussies.
-  - Statistiques : informations et rétroliens d'une fiche (la note elle-même exclue), disciplines de la fiche et constatées comptées une fois, filtres par statut et par nombres, répartitions (le non renseigné en dernier), cote de l'Amirauté, ordre de l'échelle, années (date des faits, sinon de la note), voix, chiffres clés.
-  - Hypothèses concurrentes : lecture des indices d'un dossier, éléments examinés, élément introuvable, poids, éléments qui départagent, classement ; écriture d'un jugement (et son retrait sans toucher aux autres), nouvelle hypothèse ajoutée au dossier, élément à examiner.
-  - `valider.py` 1.5 : statut `torpeur` ; hypothèse de dossier sans `pour` en information, indice isolé sans `pour` en erreur.
-  - Points à trancher, questions pour la soirée, recherche, préparation de séance (la torpeur écartée comme la mort), tableau triable, corbeille, liste des fiches, rapport de soirée, alibis, fiabilité calculée, alertes.
-- **Parcours automatique de l'interface** en 1920 × 1080 : 146 vérifications réussies, dont : les statistiques (une part choisie détaille ses personnages, le filtre « au moins une information », « Masquer « Aucune connue » », une case de la grille de l'Amirauté liste ses informations) ; le tableau des hypothèses ; l'onglet À trancher ; supprimer une note puis la restaurer.
-- **Sur une copie de votre coffre avec les lots 5 et 6** (6 660 notes) :
-  - le lot 6 s'intègre sans problème : 4 627 notes ajoutées, aucune note existante modifiée ;
-  - statistiques : 1,2 à 1,4 s au premier calcul ;
-  - À trancher : 89 points, dont 88 doutes d'identité (les homonymes du registre marqués « peut-être »).
+- **743 vérifications automatiques** réussies.
+  - Filiations : liens tirés de la fiche, des informations et d'un indice ; rumeur improbable écartée ; deux sources pour un même lien ; lien incertain ; familles, générations, second sire signalé ; clans, lignées et lignées sans clan.
+  - Lignée : une fiche qui porte la lignée en clan apparaît comme « lignée (fiche) ».
+  - Ajouts depuis les fiches, statistiques, hypothèses concurrentes, points à trancher, préparation de séance, corbeille, rapport de soirée, alibis, alertes, `valider.py` 1.5.
+- **Parcours automatique de l'interface** en 1920 × 1080 : 172 vérifications réussies, dont :
+  - « + Membre » sur une lignée : une information, le clan de la fiche inchangé ;
+  - Filiations : écran vide, « + Infant » préréglé, l'arbre redessiné, la recherche, l'onglet Clans et lignées ouvert depuis une fiche de clan ;
+  - les « + » des fiches, les statistiques, le tableau des hypothèses, la corbeille.
+- **Sur une copie de votre coffre** : les arbres ci-dessus, en 0,5 s.
 - **Pas vérifié** : l'affichage sur votre écran (taille, mise à l'échelle) et le presse-papiers de Windows.
 
-## 13. Vos données
+## 15. Vos données
 
 - Le Markdown reste la seule source de vérité. L'index se reconstruit à tout moment.
 - Toute écriture est sûre :
@@ -472,7 +527,7 @@ L'index ne change pas de version : pas de reconstruction au premier lancement.
 - L'application n'efface aucune note d'elle-même. *Supprimer…* déplace la note dans la corbeille `.trash/`, d'où on la restaure ; seul l'effacement depuis la corbeille, après confirmation, supprime un fichier.
 - Elle ne modifie jamais une note à partir d'un lot : elle n'ajoute que des notes neuves.
 
-## 14. Arborescence
+## 16. Arborescence
 
 ```
 core/model/      types de notes, champs, listes de choix, noms de fichiers ; dates floues
@@ -480,11 +535,12 @@ core/format/     propriétés, note, lignes structurées, identifiants
 core/storage/    accès au dossier, écriture sûre, corbeille
 core/index/      index SQLite, recherche, requêtes de l'enquête
 core/sync/       synchronisation et vérification
-core/analysis/   graphe, chemins probables, rapport de soirée, alertes, informateurs, alibis, points à trancher, hypothèses concurrentes, préparation de séance, statistiques
+core/analysis/   graphe, chemins probables, rapport de soirée, alertes, informateurs, alibis, points à trancher, hypothèses concurrentes, préparation de séance, statistiques, membres d'un groupe, filiations
 core/exchange/   export pour Claude, import des lots
 core/app/        façade AppService, fusion de fiches, banc
-ui/screens/      accueil, nouvelle note, fiches, note, enquête, graphe et chemins, rapport, séance, hypothèses, statistiques, échanges, réglages, diagnostic, banc
+ui/screens/      accueil, nouvelle note, fiches, note, enquête, graphe et chemins, rapport, séance, hypothèses, statistiques, filiations, échanges, réglages, diagnostic, banc
 ui/widgets/      éditeur de champ, sélecteur, renseignements calculés, vue du graphe, fusion, tableau triable,
-                 panneau escamotable, colonne de lecture, ligne de temps, liste d'alertes, fiabilité d'un informateur, alibis, camembert
+                 panneau escamotable, colonne de lecture, ligne de temps, liste d'alertes, fiabilité d'un informateur, alibis, camembert,
+                 fenêtre d'ajout des « + », arbre
 tests/, tools/   tests, parcours d'interface, captures, contrôle d'un lot réel, valider.py
 ```

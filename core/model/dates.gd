@@ -103,6 +103,15 @@ static func span(edtf: Variant) -> Array:
 	return [first, last]
 
 
+const _PT := "[0-9X]{4}(?:-(?:0[1-9]|1[0-2]|XX)(?:-(?:0[1-9]|[12][0-9]|3[01]|XX))?)?[~?%]?"
+static var _R_EDTF := RegEx.create_from_string("^(?:inconnue|%s|%s/%s|\\.\\./%s|%s/\\.\\.)$" % [_PT, _PT, _PT, _PT, _PT])
+
+
+## Date conforme au §7 (exacte ou floue), comme le vérifie valider.py.
+static func is_valid(edtf: Variant) -> bool:
+	return _R_EDTF.search(str(edtf if edtf != null else "").strip_edges()) != null
+
+
 ## Date au jour près, sans approximation (« 2026-10-14 »).
 static func is_day(edtf: Variant) -> bool:
 	var s := str(edtf if edtf != null else "").strip_edges()

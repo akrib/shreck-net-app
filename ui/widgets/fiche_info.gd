@@ -10,6 +10,7 @@ const TextNorm := preload("res://core/format/text_norm.gd")
 const Dates := preload("res://core/model/dates.gd")
 const Where := preload("res://core/analysis/whereabouts.gd")
 const AlibiView := preload("res://ui/widgets/alibi_view.gd")
+const Members := preload("res://core/analysis/members.gd")
 
 const ACTIVE_FAVEURS := ["active", "reclamee", "suspendue"]
 
@@ -71,6 +72,35 @@ static func _section(col: VBoxContainer, title: String, n: int) -> VBoxContainer
 	return inner
 
 
+## Bouton « + » dans la barre de titre d'une section : ouvre la fenêtre d'ajout
+## (ui/widgets/add_info.gd) depuis l'écran de la note, qui relit ensuite la fiche.
+static func _plus(main: Control, inner: VBoxContainer, text: String, tip: String, spec: Dictionary) -> void:
+	var fold := inner.get_parent() as FoldableContainer
+	if fold == null or not main.screens.has("note"):
+		return
+	var b := Button.new()
+	b.text = text
+	b.tooltip_text = tip
+	b.focus_mode = Control.FOCUS_NONE
+	b.add_theme_color_override("font_color", Color("9be3a8"))
+	b.pressed.connect(func(): main.screens.note.open_add(spec))
+	fold.add_title_bar_control(b)
+
+
+## Bouton « + » qui ouvre le formulaire d'une nouvelle note préremplie (faveur, indice, soirée…).
+static func _plus_new(main: Control, inner: VBoxContainer, text: String, tip: String, type_name: String, preset: Dictionary) -> void:
+	var fold := inner.get_parent() as FoldableContainer
+	if fold == null or not main.screens.has("note"):
+		return
+	var b := Button.new()
+	b.text = text
+	b.tooltip_text = tip
+	b.focus_mode = Control.FOCUS_NONE
+	b.add_theme_color_override("font_color", Color("9be3a8"))
+	b.pressed.connect(func(): main.screens.note.open_new(type_name, preset))
+	fold.add_title_bar_control(b)
+
+
 static func _row(main: Control, inner: VBoxContainer, text: String, path: String) -> void:
 	var b := UiKit.button(text, func(): main.open_note(path))
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -116,6 +146,7 @@ static func _statut(app: Node, main: Control, col: VBoxContainer, name: String, 
 			donnes.append(["A donné %s%s à %s (%s)" % [("le sobriquet" if code == "sobriquet" else ("une reconnaissance" if code == "reconnait" else "un poste")),
 				(" « %s »" % qual) if qual != "" else "", vers, r.note], r.path])
 	var inner := _section(col, "Statut : reconnaissances, sobriquets, postes", recus.size() + donnes.size())
+	_plus(main, inner, "+ Statut", "Une reconnaissance, un sobriquet ou une nomination reçus, notés comme information dans la source de votre choix", {"kind": "statut"})
 	var pr: Dictionary = app.index.props_of(rel)
 	var rang := Schema.option_label("personnage", "rang", pr.get("rang", ""))
 	var secte := Schema.link_name(pr.get("secte", ""))
@@ -162,8 +193,9 @@ static func _disciplines(app: Node, main: Control, col: VBoxContainer, name: Str
 	for c in Schema.DISCIPLINES_COMMUNES:
 		communes[TextNorm.fold(c)] = true
 	var inner := _section(col, "Disciplines et clans compatibles", known.size())
+	_plus(main, inner, "+ Discipline", "Un pouvoir constaté, noté comme information dans la source de votre choix", {"kind": "discipline"})
 	if known.is_empty():
-		inner.add_child(UiKit.muted("Aucune discipline connue. Notez un pouvoir constaté dans une soirée (« Plus de détails » → discipline) ou dans la fiche."))
+		inner.add_child(UiKit.muted("Aucune discipline connue. « + Discipline » note un pouvoir constaté."))
 		return
 	for k in known:
 		var info: Array = known[k]
@@ -206,19 +238,24 @@ static func _disciplines(app: Node, main: Control, col: VBoxContainer, name: Str
 		_row(main, inner, "%s (%s) — %d discipline(s) en commun" % [c[1], "lignée" if c[3] == "lignee" else "clan", c[0]], c[2])
 
 
-## Groupe : membres (clan, secte), lignées rattachées à un clan.
+## Groupe : membres (clan ou secte de leur fiche, éléments et indices « est
+## membre de » ou « dirige »), lignées rattachées à un clan.
 static func _members(app: Node, main: Control, col: VBoxContainer, name: String) -> void:
-	var rows := []
-	for r in app.index.linked_from(name, ["clan", "secte"]):
-		if str(r.type) == "personnage":
-			rows.append(["%s — %s" % [r.name, "clan" if str(r.origin) == "propriété clan" else "secte"], r.path])
+	var rows: Array = Members.of_group(app.index, name)
 	var lignees := []
 	for r in app.index.linked_from(name, ["clan"]):
 		if str(r.type) == "groupe":
 			lignees.append([str(r.name), r.path])
 	var inner := _section(col, "Membres connus", rows.size())
+	var nat := str(app.index.props_of(app.index.path_of_name(name)).get("nature", ""))
+	_plus(main, inner, "+ Membre", "Clan ou secte : écrit dans la fiche du personnage. Lignée, faction, coterie… : noté comme information dans la source de votre choix.",
+		{"kind": "membre"})
+	if rows.is_empty():
+		inner.add_child(UiKit.muted("Aucun membre connu. « + Membre » en ajoute un." if nat in ["clan", "secte"]
+			else "Aucun membre connu. « + Membre » note qu'un personnage en est membre, ou le dirige, avec la source de l'information."))
 	for x in rows:
-		_row(main, inner, x[0], x[1])
+		var p: String = x.path if str(x.path) != "" else (str(x.sources[0].path) if not x.sources.is_empty() else "")
+		_row(main, inner, Members.describe(x), p)
 	if not lignees.is_empty():
 		var inner2 := _section(col, "Lignées", lignees.size())
 		for x in lignees:
@@ -270,6 +307,7 @@ static func _presences(app: Node, main: Control, col: VBoxContainer, name: Strin
 	var list: Array = Where.of_person(app.index, name)
 	var conf: Dictionary = Where.conflicts(list)
 	var inner := _section(col, "Où était-il ?" + ((" — %d nuit%s à deux endroits" % [conf.size(), "s" if conf.size() > 1 else ""]) if not conf.is_empty() else " Présences"), list.size())
+	_plus(main, inner, "+ Présence", "Vu à une soirée : écrit dans les présents de la soirée. Rapporté : noté comme information dans une source.", {"kind": "presence"})
 	if list.is_empty():
 		return
 	inner.add_child(UiKit.hbox([UiKit.button("Voir dans Enquête → Alibis", func(): main.show_alibis("personne", name), "Ligne de temps complète, nuits contradictoires")]))
@@ -311,6 +349,7 @@ static func _relations(app: Node, main: Control, col: VBoxContainer, name: Strin
 		rows.append(["%s %s %s — indice %s, %s" % [de, Schema.option_label("", "relation", pr.relation), vers,
 			Schema.option_label("indice", "statut", pr.get("statut", "")).to_lower(), _cred(pr.get("credibilite"))], n.path])
 	var inner := _section(col, "Relations connues", rows.size())
+	_plus(main, inner, "+ Relation", "Allié, ennemi, membre, sire, mentor, contact… noté comme information dans la source de votre choix", {"kind": "relation"})
 	for x in rows:
 		_row(main, inner, x[0], x[1])
 
@@ -330,6 +369,7 @@ static func _faveurs(app: Node, main: Control, col: VBoxContainer, name: String)
 		rows.append([0 if ACTIVE_FAVEURS.has(st) else 1, "%s — %s" % [txt, Schema.option_label("faveur", "statut", st).to_lower()], n.path])
 	rows.sort_custom(func(a, b): return a[0] < b[0])
 	var inner := _section(col, "Faveurs", rows.size())
+	_plus_new(main, inner, "+ Faveur", "Nouvelle note de faveur, « %s » en débiteur (à inverser dans le formulaire s'il est créancier)" % name, "faveur", {"debiteur": "[[%s]]" % name})
 	for x in rows:
 		_row(main, inner, x[1], x[2])
 
@@ -345,6 +385,7 @@ static func _indices(app: Node, main: Control, col: VBoxContainer, name: String)
 		rows.append(["%s — %s, %s" % [r.name, Schema.type_label(str(r.type)).to_lower(),
 			Schema.option_label(str(r.type), "statut", pr.get("statut", "")).to_lower()], r.path])
 	var inner := _section(col, "Indices, événements et dossiers", rows.size())
+	_plus_new(main, inner, "+ Indice", "Nouvel indice (une affirmation à évaluer) dont « %s » est le sujet" % name, "indice", {"sujets": ["[[%s]]" % name]})
 	for x in rows:
 		_row(main, inner, x[0], x[1])
 
@@ -352,6 +393,7 @@ static func _indices(app: Node, main: Control, col: VBoxContainer, name: String)
 static func _mentions(app: Node, main: Control, col: VBoxContainer, name: String, wide := false) -> void:
 	var rows: Array = app.index.elements_mentioning(name, 200)
 	var inner := _section(col, "Ce que disent les sources", rows.size())
+	_plus(main, inner, "+ Information", "Ce que vous avez vu ou appris, écrit dans la source de votre choix (Mes notes du jour par défaut)", {"kind": "mention"})
 	if wide and not rows.is_empty():
 		(inner.get_parent() as FoldableContainer).folded = false  # c'est le cœur de la fiche
 	for r in rows.slice(0, 40):
@@ -368,6 +410,15 @@ static func _attached(app: Node, main: Control, col: VBoxContainer, name: String
 			rows.append([str(r.name), r.path])
 	rows.sort_custom(func(a, b): return a[0] > b[0] if ty == "soiree" else a[0] < b[0])
 	var inner := _section(col, title, rows.size())
+	match ty:
+		"personnage":
+			_plus(main, inner, "+ Personnage", "Rattacher un personnage à ce domaine : écrit dans sa fiche (domaine)", {"kind": "rattache"})
+		"soiree":
+			_plus_new(main, inner, "+ Soirée", "Nouvelle soirée dans ce domaine", "soiree", {"domaine": "[[%s]]" % name})
+		"lieu":
+			_plus_new(main, inner, "+ Lieu", "Nouveau lieu dans ce domaine", "lieu", {"domaine": "[[%s]]" % name})
+		"faveur":
+			_plus_new(main, inner, "+ Faveur", "Nouvelle faveur enregistrée dans ce domaine", "faveur", {"domaine": "[[%s]]" % name})
 	for x in rows:
 		_row(main, inner, x[0], x[1])
 

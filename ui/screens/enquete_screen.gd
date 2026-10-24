@@ -67,6 +67,7 @@ func setup(p_app: Node, p_main: Control) -> void:
 	tools.add_child(UiKit.button("Chemin entre deux fiches", func(): main.show_paths(), "Les liens les plus probables, selon l'échelle de l'Amirauté"))
 	tools.add_child(UiKit.button("Préparer une séance", func(): main.show_screen("seance"), "Qui sera là, faveurs, questions, tâches"))
 	tools.add_child(UiKit.button("Rapport de soirée", func(): main.show_report(), "Présents par préséance, informations, texte à publier"))
+	tools.add_child(UiKit.button("Filiations", func(): main.show_lineage(), "Arbres des sires et des infants, clans et lignées"))
 	tools.add_child(UiKit.button("Statistiques", func(): main.show_stats(), "Personnages et informations en camemberts : statuts, âges, villes, clans, échelle de l'Amirauté…"))
 	tools.add_child(UiKit.button("Échanges avec Claude", func(): main.show_screen("echanges"), "Exporter des notes, importer un lot"))
 	add_child(tools)

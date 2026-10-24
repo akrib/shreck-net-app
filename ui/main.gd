@@ -19,6 +19,7 @@ const EchangesScreen := preload("res://ui/screens/echanges_screen.gd")
 const RapportScreen := preload("res://ui/screens/rapport_screen.gd")
 const HypothesesScreen := preload("res://ui/screens/hypotheses_screen.gd")
 const StatsScreen := preload("res://ui/screens/stats_screen.gd")
+const LineageScreen := preload("res://ui/screens/lineage_screen.gd")
 const SlidePanel := preload("res://ui/widgets/slide_panel.gd")
 
 var app: Node
@@ -59,6 +60,7 @@ func _ready() -> void:
 		"note": NoteScreen.new(), "enquete": EnqueteScreen.new(), "nouvelle": NewNoteScreen.new(),
 		"diag": DiagScreen.new(), "banc": BancScreen.new(), "graphe": GraphScreen.new(), "seance": SeanceScreen.new(),
 		"echanges": EchangesScreen.new(), "rapport": RapportScreen.new(), "hypotheses": HypothesesScreen.new(), "stats": StatsScreen.new(),
+		"filiations": LineageScreen.new(),
 	}
 	for k in screens:
 		screens[k].setup(app, self)
@@ -192,7 +194,7 @@ func show_screen(key: String, remember := true) -> void:
 	_content.add_child(screens[key])
 	current = key
 	var nav_key: String = {"diag": "coffre", "banc": "coffre", "nouvelle": "accueil", "graphe": "enquete",
-		"seance": "enquete", "echanges": "enquete", "rapport": "enquete", "hypotheses": "enquete", "stats": "enquete"}.get(key, key)
+		"seance": "enquete", "echanges": "enquete", "rapport": "enquete", "hypotheses": "enquete", "stats": "enquete", "filiations": "enquete"}.get(key, key)
 	for k in _nav_buttons:
 		_nav_buttons[k].button_pressed = k == nav_key
 	_nav_buttons.note.disabled = not screens.note.has_note()
@@ -232,6 +234,12 @@ func show_paths(from := "", to := "") -> void:
 func show_alibis(mode := "", value := "") -> void:
 	screens.enquete.open_alibis(mode, value)
 	show_screen("enquete")
+
+
+## Filiations : « sires » (sires et infants) ou « lignees » (clans et lignées), centrées sur un nom ("" = tout).
+func show_lineage(tab := "sires", focus := "") -> void:
+	screens.filiations.open(tab, focus)
+	show_screen("filiations")
 
 
 ## Statistiques : « personnages » ou « informations ».

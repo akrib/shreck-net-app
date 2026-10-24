@@ -18,6 +18,7 @@ const FusionDialog := preload("res://ui/widgets/fusion_dialog.gd")
 const SlidePanel := preload("res://ui/widgets/slide_panel.gd")
 const Informants := preload("res://core/analysis/informants.gd")
 const InformantBox := preload("res://ui/widgets/informant_box.gd")
+const AddInfo := preload("res://ui/widgets/add_info.gd")
 
 ## Types de fiches qu'on peut fusionner (un inconnu identifié, un doublon).
 const MERGEABLE := ["personnage", "groupe", "lieu", "objet", "domaine", "concept"]
@@ -253,6 +254,9 @@ func _build() -> void:
 		gb.add_child(UiKit.button("Chemin vers…", func(): main.show_paths(nm, ""), "Les liens les plus probables vers une autre fiche"))
 		if t == "personnage":
 			gb.add_child(UiKit.button("Où était-il ?", func(): main.show_alibis("personne", nm), "Enquête → Alibis : sa ligne de temps"))
+			gb.add_child(UiKit.button("Filiation", func(): main.show_lineage("sires", nm), "Son sire, ses infants et tout son lignage, en arbre"))
+		elif str(props.get("nature", "")) in ["clan", "lignee"]:
+			gb.add_child(UiKit.button("Clans et lignées", func(): main.show_lineage("lignees", nm), "Le clan, ses lignées et leurs membres connus, en arbre"))
 		if doc.can_edit_properties():
 			var watched := _is_watched()
 			var wb := UiKit.button("Ne plus surveiller" if watched else "Surveiller", _toggle_watch,
@@ -478,6 +482,37 @@ func _toggle_watch() -> void:
 		app.mark_seen(note_name())
 	open(rel)
 	_set_status(("Surveillée ✓ : une alerte signalera chaque nouvel élément." if not watched else "Plus surveillée.") if r.ok else "NON enregistré : " + str(r.get("error", "?")))
+
+
+# ------------------------------------------------------------------ « + » des sections de la fiche
+
+## Fenêtre d'ajout d'une section (« + Membre », « + Relation »…). L'ajout s'écrit
+## dans la bonne note (source, soirée ou fiche concernée), puis la fiche est relue.
+func open_add(spec: Dictionary) -> Control:
+	if doc == null:
+		return null
+	if _dirty:
+		save()
+		if _dirty:
+			return null
+	var sp := spec.duplicate()
+	sp["subject"] = note_name()
+	sp["subject_type"] = doc.type_name()
+	if sp.subject_type == "groupe":
+		sp["group_nature"] = str(doc.properties().get("nature", ""))
+	return AddInfo.open_in(main, app, sp, func(msg: String):
+		if rel != "":
+			open(rel)
+		_set_status(msg))
+
+
+## Formulaire d'une nouvelle note préremplie depuis une section (« + Faveur »…).
+func open_new(type_name: String, preset: Dictionary) -> void:
+	if _dirty:
+		save()
+		if _dirty:
+			return
+	main.new_note(type_name, preset)
 
 
 # ------------------------------------------------------------------ fusion, identifiants

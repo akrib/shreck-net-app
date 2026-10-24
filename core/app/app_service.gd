@@ -31,7 +31,7 @@ const Trash := preload("res://core/storage/trash.gd")
 ## Fichier des réglages. Les outils de test le redirigent avant de créer
 ## l'application, pour ne jamais toucher aux réglages réels.
 static var settings_file := "user://reglages.cfg"
-const VERSION := "0.16 (statistiques)"
+const VERSION := "0.18 (filiations)"
 
 var settings := ConfigFile.new()
 var repo: RefCounted = null          ## RepoAccess, ou null si non configuré
@@ -516,6 +516,64 @@ func append_element(rel: String, item_line: String) -> Dictionary:
 	var doc: RefCounted = r.doc
 	doc.set_body(StructuredLines.append_to_section(doc.body_for_edit(), "Éléments", item_line))
 	return save_note(rel, doc, r.hash)
+
+
+# ------------------------------------------------------------------ ajouts depuis une fiche (« + »)
+
+## Titre de la source du jour où vont les ajouts faits depuis une fiche.
+const DAY_NOTES_TITLE := "Mes notes"
+
+
+## « Mes notes » du jour : source de nature « note personnelle », datée du jour,
+## créée au premier ajout. Renvoie {ok, rel ("" si absente et non créée), name, created, error}.
+func day_notes(create := true) -> Dictionary:
+	if repo == null:
+		return {"ok": false, "error": "coffre non configuré"}
+	var ctx := schema_ctx()
+	var v := Schema.defaults("source", ctx)
+	v["nature"] = "note"
+	v["titre"] = DAY_NOTES_TITLE
+	v["fiabilite"] = Schema.FIABILITE_PAR_NATURE.note
+	v.erase("canal")
+	var name := Schema.build_name("source", v, ctx.now)
+	var rel := "%s/%s.md" % [Schema.folder("source", v, ctx.now), name]
+	var existing: String = index.path_of_name(name) if index != null else ""
+	if existing != "":
+		return {"ok": true, "rel": existing, "name": name, "created": false}
+	if repo.exists(rel):
+		return {"ok": true, "rel": rel, "name": name, "created": false}
+	if not create:
+		return {"ok": true, "rel": "", "name": name, "created": false}
+	# la nature retenue pour le prochain formulaire de source ne change pas
+	var kept: Variant = settings.get_value("saisie", "source_nature", null)
+	var r := create_note("source", v, "Ajouts faits depuis les fiches de l'application.")
+	if kept != null:
+		settings.set_value("saisie", "source_nature", kept)
+		save_settings()
+	if not r.ok:
+		return r
+	return {"ok": true, "rel": r.rel, "name": r.name, "created": true}
+
+
+## Ajoute un élément (ligne sans identifiant, cf. StructuredLines.element_line)
+## dans une soirée ou une source ; `dest` vide : « Mes notes » du jour.
+## Renvoie {ok, rel, name, created, block, error}.
+func add_element_line(dest: String, line: String) -> Dictionary:
+	var rel := dest
+	var created := false
+	if rel == "":
+		var d := day_notes(true)
+		if not d.ok:
+			return d
+		rel = d.rel
+		created = d.created
+	var block := Ids.generate("el")
+	var r := append_element(rel, line + " ^" + block)
+	r["rel"] = rel
+	r["name"] = rel.get_file().get_basename()
+	r["created"] = created
+	r["block"] = block
+	return r
 
 
 # ------------------------------------------------------------------ alertes

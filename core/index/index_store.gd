@@ -750,6 +750,11 @@ func all_relations(limit := 20000) -> Array:
 	return rows("SELECT f.path, f.name AS note, f.type, e.block, e.text, e.relation, e.de_key, e.vers_key, e.cred, e.nature, e.fields FROM elements e JOIN files f ON f.fid = e.fid WHERE e.relation != '' AND e.de_key != '' AND e.vers_key != '' LIMIT ?", [limit])
 
 
+## Éléments d'une relation donnée (« sire_de »…), où qu'ils soient notés.
+func relations_by_code(code: String, limit := 20000) -> Array:
+	return rows("SELECT f.path, f.name AS note, f.type, e.block, e.text, e.relation, e.de_key, e.vers_key, e.cred, e.nature, e.fields FROM elements e JOIN files f ON f.fid = e.fid WHERE e.relation = ? AND e.de_key != '' AND e.vers_key != '' ORDER BY f.name_key LIMIT ?", [code, limit])
+
+
 ## Présences notées dans les soirées : [{soiree, path, date, domaine, target_key, target, origin}].
 func all_presences(limit := 50000) -> Array:
 	return rows("SELECT f.name AS soiree, f.path, (SELECT value FROM props WHERE fid = f.fid AND key = 'date' LIMIT 1) AS date, (SELECT value FROM props WHERE fid = f.fid AND key = 'domaine' LIMIT 1) AS domaine, l.target_key, l.target, l.origin FROM links l JOIN files f ON f.fid = l.fid WHERE f.type = 'soiree' AND l.origin IN ('propriété presents', 'propriété presents_incertains') LIMIT ?", [limit])
