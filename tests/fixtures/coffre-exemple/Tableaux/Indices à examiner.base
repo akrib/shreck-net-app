@@ -1,0 +1,14 @@
+filters:
+  and:
+    - file.inFolder("Indices")
+    - or:
+        - 'statut == "non_verifie"'
+        - 'statut == "conteste"'
+views:
+  - type: table
+    name: Indices à examiner
+    order:
+      - file.name
+      - statut
+      - credibilite
+      - sujets

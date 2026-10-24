@@ -1,0 +1,14 @@
+filters:
+  and:
+    - file.inFolder("Soirees")
+views:
+  - type: table
+    name: Soirées par domaine
+    groupBy:
+      property: note.domaine
+      direction: ASC
+    order:
+      - file.name
+      - date
+      - nature
+      - presents

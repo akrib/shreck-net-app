@@ -1,0 +1,5 @@
+# Écritures temporaires de l'application Nosferatu
+.nosferatu/tmp/
+# Facultatif : état de l'interface Obsidian propre à chaque appareil
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json

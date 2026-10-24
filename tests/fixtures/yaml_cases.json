@@ -1,0 +1,491 @@
+[
+ {
+  "nom": "scalaires simples",
+  "yaml": "type: personnage\nid: per-12m0sc1s\nschema: 1",
+  "attendu": "ok",
+  "valeur": {
+   "type": [
+    "str",
+    "personnage"
+   ],
+   "id": [
+    "str",
+    "per-12m0sc1s"
+   ],
+   "schema": [
+    "int",
+    1
+   ]
+  }
+ },
+ {
+  "nom": "accents et guillemets",
+  "yaml": "nom: \"Élise « la Rouge » Varga\"\nalias: 'L''inconnu'\nsimple: L'inconnu\nechap: \"a \\\"b\\\" c\\\\d\"\nunicode: \"\\u00e9t\\u00e9\"",
+  "attendu": "ok",
+  "valeur": {
+   "nom": [
+    "str",
+    "Élise « la Rouge » Varga"
+   ],
+   "alias": [
+    "str",
+    "L'inconnu"
+   ],
+   "simple": [
+    "str",
+    "L'inconnu"
+   ],
+   "echap": [
+    "str",
+    "a \"b\" c\\d"
+   ],
+   "unicode": [
+    "str",
+    "été"
+   ]
+  }
+ },
+ {
+  "nom": "liste en bloc",
+  "yaml": "aliases:\n  - Le Notaire\n  - \"[[Victor Morel]]\"\n  - \"[[2026-10-10 Valombre - Assemblée#^el-gq9x1xqg]]\"",
+  "attendu": "ok",
+  "valeur": {
+   "aliases": [
+    "list",
+    [
+     [
+      "str",
+      "Le Notaire"
+     ],
+     [
+      "str",
+      "[[Victor Morel]]"
+     ],
+     [
+      "str",
+      "[[2026-10-10 Valombre - Assemblée#^el-gq9x1xqg]]"
+     ]
+    ]
+   ]
+  }
+ },
+ {
+  "nom": "liste compacte",
+  "yaml": "aliases:\n- a\n- b",
+  "attendu": "ok",
+  "valeur": {
+   "aliases": [
+    "list",
+    [
+     [
+      "str",
+      "a"
+     ],
+     [
+      "str",
+      "b"
+     ]
+    ]
+   ]
+  }
+ },
+ {
+  "nom": "liste en ligne",
+  "yaml": "tags: [exemple, \"b, c\", 'd', 3]",
+  "attendu": "ok",
+  "valeur": {
+   "tags": [
+    "list",
+    [
+     [
+      "str",
+      "exemple"
+     ],
+     [
+      "str",
+      "b, c"
+     ],
+     [
+      "str",
+      "d"
+     ],
+     [
+      "int",
+      3
+     ]
+    ]
+   ]
+  }
+ },
+ {
+  "nom": "vides",
+  "yaml": "contre: []\nclan:\nsujets: \n",
+  "attendu": "ok",
+  "valeur": {
+   "contre": [
+    "list",
+    []
+   ],
+   "clan": [
+    "null"
+   ],
+   "sujets": [
+    "null"
+   ]
+  }
+ },
+ {
+  "nom": "nombres",
+  "yaml": "credibilite: 3\nf: 2.5\nneg: -4\nzero: 0",
+  "attendu": "ok",
+  "valeur": {
+   "credibilite": [
+    "int",
+    3
+   ],
+   "f": [
+    "float",
+    2.5
+   ],
+   "neg": [
+    "int",
+    -4
+   ],
+   "zero": [
+    "int",
+    0
+   ]
+  }
+ },
+ {
+  "nom": "booleens",
+  "yaml": "moi_present: true\nx: False\ny: TRUE",
+  "attendu": "ok",
+  "valeur": {
+   "moi_present": [
+    "bool",
+    true
+   ],
+   "x": [
+    "bool",
+    false
+   ],
+   "y": [
+    "bool",
+    true
+   ]
+  }
+ },
+ {
+  "nom": "dates en texte",
+  "yaml": "date: 2026-10-10\ndate_floue: 2026-04~/..\nautre: \"2026-09\"",
+  "attendu": "ok",
+  "valeur": {
+   "date": [
+    "str",
+    "2026-10-10"
+   ],
+   "date_floue": [
+    "str",
+    "2026-04~/.."
+   ],
+   "autre": [
+    "str",
+    "2026-09"
+   ]
+  }
+ },
+ {
+  "nom": "url",
+  "yaml": "url: https://exemple.fr/page?a=b&c=d#ancre",
+  "attendu": "ok",
+  "valeur": {
+   "url": [
+    "str",
+    "https://exemple.fr/page?a=b&c=d#ancre"
+   ]
+  }
+ },
+ {
+  "nom": "commentaires",
+  "yaml": "# en tête\ncanal: Gazette de Valombre # fin de ligne\ntitre: \"#salon\"\nlangage: C#",
+  "attendu": "ok",
+  "valeur": {
+   "canal": [
+    "str",
+    "Gazette de Valombre"
+   ],
+   "titre": [
+    "str",
+    "#salon"
+   ],
+   "langage": [
+    "str",
+    "C#"
+   ]
+  }
+ },
+ {
+  "nom": "cles avec espaces",
+  "yaml": "Date de création: 2026-01-01\nnote perso: oui",
+  "attendu": "ok",
+  "valeur": {
+   "Date de création": [
+    "str",
+    "2026-01-01"
+   ],
+   "note perso": [
+    "str",
+    "oui"
+   ]
+  }
+ },
+ {
+  "nom": "espaces de fin",
+  "yaml": "type: lieu   \nnature:   refuge  ",
+  "attendu": "ok",
+  "valeur": {
+   "type": [
+    "str",
+    "lieu"
+   ],
+   "nature": [
+    "str",
+    "refuge"
+   ]
+  }
+ },
+ {
+  "nom": "vide total",
+  "yaml": "",
+  "attendu": "ok",
+  "valeur": {}
+ },
+ {
+  "nom": "texte long",
+  "yaml": "contenu: nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit",
+  "attendu": "ok",
+  "valeur": {
+   "contenu": [
+    "str",
+    "nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit nuit"
+   ]
+  }
+ },
+ {
+  "nom": "liste avec commentaire",
+  "yaml": "presents:\n  - \"[[A]]\"\n  # retiré\n  - \"[[B]]\"\nstatut: actif",
+  "attendu": "ok",
+  "valeur": {
+   "presents": [
+    "list",
+    [
+     [
+      "str",
+      "[[A]]"
+     ],
+     [
+      "str",
+      "[[B]]"
+     ]
+    ]
+   ],
+   "statut": [
+    "str",
+    "actif"
+   ]
+  }
+ },
+ {
+  "nom": "valeur avec deux-points sans espace",
+  "yaml": "heure: 21h30\nratio: a:b",
+  "attendu": "ok",
+  "valeur": {
+   "heure": [
+    "str",
+    "21h30"
+   ],
+   "ratio": [
+    "str",
+    "a:b"
+   ]
+  }
+ },
+ {
+  "nom": "tirets dans le texte",
+  "yaml": "titre: Victor - le retour\nmoins: -fin",
+  "attendu": "ok",
+  "valeur": {
+   "titre": [
+    "str",
+    "Victor - le retour"
+   ],
+   "moins": [
+    "str",
+    "-fin"
+   ]
+  }
+ },
+ {
+  "nom": "objet imbriqué",
+  "yaml": "infos:\n  age: 300",
+  "attendu": "erreur",
+  "note": "PyYAML accepte (dict) mais le profil refuse"
+ },
+ {
+  "nom": "texte multiligne |",
+  "yaml": "notes: |\n  a\n  b",
+  "attendu": "erreur",
+  "note": "PyYAML accepte (dict) mais le profil refuse"
+ },
+ {
+  "nom": "texte multiligne >",
+  "yaml": "notes: >\n  a",
+  "attendu": "erreur",
+  "note": "PyYAML accepte (dict) mais le profil refuse"
+ },
+ {
+  "nom": "lien non entre guillemets",
+  "yaml": "clan: [[Toreador]]",
+  "attendu": "erreur",
+  "note": "PyYAML accepte (dict) mais le profil refuse"
+ },
+ {
+  "nom": "lien non entre guillemets dans une liste",
+  "yaml": "presents:\n  - [[X]]",
+  "attendu": "erreur",
+  "note": "PyYAML accepte (dict) mais le profil refuse"
+ },
+ {
+  "nom": "clé en double",
+  "yaml": "statut: actif\nstatut: inconnu",
+  "attendu": "erreur",
+  "note": "PyYAML accepte (dict) mais le profil refuse"
+ },
+ {
+  "nom": "deux-points dans la valeur",
+  "yaml": "titre: Rapport: Toulouse",
+  "attendu": "erreur",
+  "note": "PyYAML refuse aussi"
+ },
+ {
+  "nom": "ancre",
+  "yaml": "a: &x 1",
+  "attendu": "erreur",
+  "note": "PyYAML accepte (dict) mais le profil refuse"
+ },
+ {
+  "nom": "alias",
+  "yaml": "b: *x",
+  "attendu": "erreur",
+  "note": "PyYAML refuse aussi"
+ },
+ {
+  "nom": "objet en ligne",
+  "yaml": "a: {b: 1}",
+  "attendu": "erreur",
+  "note": "PyYAML accepte (dict) mais le profil refuse"
+ },
+ {
+  "nom": "tabulation",
+  "yaml": "\taliases: x",
+  "attendu": "erreur",
+  "note": "PyYAML refuse aussi"
+ },
+ {
+  "nom": "guillemet non fermé",
+  "yaml": "a: \"abc",
+  "attendu": "erreur",
+  "note": "PyYAML refuse aussi"
+ },
+ {
+  "nom": "texte sur deux lignes",
+  "yaml": "a: abc\n  def",
+  "attendu": "erreur",
+  "note": "PyYAML accepte (dict) mais le profil refuse"
+ },
+ {
+  "nom": "liste de listes",
+  "yaml": "a:\n  - - x",
+  "attendu": "erreur",
+  "note": "PyYAML accepte (dict) mais le profil refuse"
+ },
+ {
+  "nom": "indentation incohérente",
+  "yaml": "a:\n  - x\n    - y",
+  "attendu": "erreur",
+  "note": "PyYAML accepte (dict) mais le profil refuse"
+ },
+ {
+  "nom": "étiquette",
+  "yaml": "a: !!str 3",
+  "attendu": "erreur",
+  "note": "PyYAML accepte (dict) mais le profil refuse"
+ },
+ {
+  "nom": "liste non fermée",
+  "yaml": "a: [x, y",
+  "attendu": "erreur",
+  "note": "PyYAML refuse aussi"
+ },
+ {
+  "nom": "yes",
+  "yaml": "x: yes",
+  "attendu": "ambigu",
+  "valeur": {
+   "x": [
+    "str",
+    "yes"
+   ]
+  },
+  "pyyaml": "{'x': True}"
+ },
+ {
+  "nom": "zéro initial",
+  "yaml": "x: 0042",
+  "attendu": "ambigu",
+  "valeur": {
+   "x": [
+    "str",
+    "0042"
+   ]
+  },
+  "pyyaml": "{'x': 34}"
+ },
+ {
+  "nom": "exposant",
+  "yaml": "x: 1e3",
+  "attendu": "ambigu",
+  "valeur": {
+   "x": [
+    "str",
+    "1e3"
+   ]
+  },
+  "pyyaml": "{'x': '1e3'}"
+ },
+ {
+  "nom": "sexagésimal",
+  "yaml": "x: 1:30",
+  "attendu": "ambigu",
+  "valeur": {
+   "x": [
+    "str",
+    "1:30"
+   ]
+  },
+  "pyyaml": "{'x': 90}"
+ },
+ {
+  "nom": "on",
+  "yaml": "x: On",
+  "attendu": "ambigu",
+  "valeur": {
+   "x": [
+    "str",
+    "On"
+   ]
+  },
+  "pyyaml": "{'x': True}"
+ }
+]

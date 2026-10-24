@@ -1,0 +1,16 @@
+filters:
+  and:
+    - file.inFolder("Faveurs")
+    - or:
+        - 'statut == "active"'
+        - 'statut == "reclamee"'
+views:
+  - type: table
+    name: Faveurs en cours
+    order:
+      - file.name
+      - niveau
+      - debiteur
+      - creancier
+      - statut
+      - date

@@ -1,0 +1,274 @@
+{
+  "format": "nosferatu",
+  "schema": 1,
+  "moi": "",
+  "dossiers_ignores": [
+    "_Import",
+    "_Conflits",
+    "Modeles",
+    "Tableaux",
+    "Pieces"
+  ],
+  "relations": [
+    {
+      "code": "allie",
+      "libelle": "est allié de",
+      "sens": "symetrique",
+      "de": [
+        "personnage",
+        "groupe"
+      ],
+      "vers": [
+        "personnage",
+        "groupe"
+      ]
+    },
+    {
+      "code": "ennemi",
+      "libelle": "est ennemi de",
+      "sens": "symetrique",
+      "de": [
+        "personnage",
+        "groupe"
+      ],
+      "vers": [
+        "personnage",
+        "groupe"
+      ]
+    },
+    {
+      "code": "rival",
+      "libelle": "est rival de",
+      "sens": "symetrique",
+      "de": [
+        "personnage",
+        "groupe"
+      ],
+      "vers": [
+        "personnage",
+        "groupe"
+      ]
+    },
+    {
+      "code": "lie_a",
+      "libelle": "est lié à (nature inconnue)",
+      "sens": "symetrique",
+      "de": [],
+      "vers": []
+    },
+    {
+      "code": "membre_de",
+      "libelle": "est membre de",
+      "sens": "dirige",
+      "inverse": "a pour membre",
+      "de": [
+        "personnage"
+      ],
+      "vers": [
+        "groupe"
+      ]
+    },
+    {
+      "code": "dirige",
+      "libelle": "dirige",
+      "sens": "dirige",
+      "inverse": "est dirigé par",
+      "de": [
+        "personnage"
+      ],
+      "vers": [
+        "groupe",
+        "domaine",
+        "lieu"
+      ]
+    },
+    {
+      "code": "sire_de",
+      "libelle": "est le sire de",
+      "sens": "dirige",
+      "inverse": "est l'infant de",
+      "de": [
+        "personnage"
+      ],
+      "vers": [
+        "personnage"
+      ]
+    },
+    {
+      "code": "mentor_de",
+      "libelle": "est le mentor de",
+      "sens": "dirige",
+      "inverse": "est le disciple de",
+      "de": [
+        "personnage"
+      ],
+      "vers": [
+        "personnage"
+      ]
+    },
+    {
+      "code": "contact_de",
+      "libelle": "est un contact de",
+      "sens": "dirige",
+      "inverse": "a pour contact",
+      "de": [
+        "personnage"
+      ],
+      "vers": [
+        "personnage"
+      ]
+    },
+    {
+      "code": "sert",
+      "libelle": "est au service de",
+      "sens": "dirige",
+      "inverse": "a à son service",
+      "de": [
+        "personnage"
+      ],
+      "vers": [
+        "personnage",
+        "groupe"
+      ]
+    },
+    {
+      "code": "protege",
+      "libelle": "protège",
+      "sens": "dirige",
+      "inverse": "est protégé par",
+      "de": [
+        "personnage",
+        "groupe"
+      ],
+      "vers": [
+        "personnage",
+        "groupe"
+      ]
+    },
+    {
+      "code": "chantage",
+      "libelle": "fait chanter",
+      "sens": "dirige",
+      "inverse": "est victime de chantage de",
+      "de": [
+        "personnage"
+      ],
+      "vers": [
+        "personnage"
+      ]
+    },
+    {
+      "code": "influence",
+      "libelle": "a de l'influence sur",
+      "sens": "dirige",
+      "inverse": "est influencé par",
+      "de": [
+        "personnage",
+        "groupe"
+      ],
+      "vers": []
+    },
+    {
+      "code": "lien_de_sang",
+      "libelle": "est lié par le sang à",
+      "sens": "dirige",
+      "inverse": "a pour lié",
+      "de": [
+        "personnage"
+      ],
+      "vers": [
+        "personnage"
+      ]
+    },
+    {
+      "code": "present_a",
+      "libelle": "était présent à",
+      "sens": "dirige",
+      "inverse": "a vu la présence de",
+      "de": [
+        "personnage"
+      ],
+      "vers": [
+        "soiree"
+      ]
+    },
+    {
+      "code": "possede",
+      "libelle": "possède",
+      "sens": "dirige",
+      "inverse": "est possédé par",
+      "de": [
+        "personnage",
+        "groupe"
+      ],
+      "vers": [
+        "objet",
+        "lieu"
+      ]
+    },
+    {
+      "code": "reside_a",
+      "libelle": "réside à",
+      "sens": "dirige",
+      "inverse": "abrite",
+      "de": [
+        "personnage"
+      ],
+      "vers": [
+        "lieu",
+        "domaine"
+      ]
+    }
+  ],
+  "faveurs": {
+    "niveaux": [
+      {
+        "code": "triviale",
+        "delai_seances": 1,
+        "delai_mois": 0,
+        "note": "une session de jeu ou une nuit"
+      },
+      {
+        "code": "mineure",
+        "delai_seances": 2,
+        "delai_mois": 1,
+        "note": "le plus long des deux"
+      },
+      {
+        "code": "majeure",
+        "delai_seances": 6,
+        "delai_mois": 3,
+        "note": "le plus long des deux"
+      },
+      {
+        "code": "sang",
+        "delai_seances": null,
+        "delai_mois": null,
+        "note": "non précisé"
+      },
+      {
+        "code": "vie",
+        "delai_seances": null,
+        "delai_mois": null,
+        "note": "non précisé"
+      }
+    ]
+  },
+  "valeurs": {
+    "soiree.nature": [
+      "assemblee",
+      "elysium",
+      "conclave",
+      "reunion",
+      "autre"
+    ],
+    "groupe.nature": [
+      "clan",
+      "faction",
+      "coterie",
+      "secte",
+      "organisation",
+      "autre"
+    ]
+  }
+}
