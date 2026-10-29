@@ -14,6 +14,8 @@ var _zoom: HSlider
 var _zoom_label: Label
 var _trash_box: VBoxContainer
 var _trash_head: Label
+var _removed_head: Label
+var _removed_box: VBoxContainer
 var _confirm: ConfirmationDialog
 var _pending_purge: Array = []
 
@@ -63,6 +65,11 @@ func setup(p_app: Node, p_main: Control) -> void:
 	col.add_child(UiKit.muted("Les notes supprimées depuis l'application sont déplacées dans le dossier .trash du coffre, comme la corbeille d'Obsidian (dont les fichiers apparaissent ici aussi). Rien n'est effacé tant que vous ne le demandez pas."))
 	_trash_box = UiKit.vbox([], 6)
 	col.add_child(_trash_box)
+	_removed_head = UiKit.label("Lignes retirées", false, 17)
+	col.add_child(_removed_head)
+	col.add_child(UiKit.muted("Les informations et les liens retirés d'une fiche par sa croix × : un appui sur « Restaurer » les remet dans leur note (une ligne revient en fin de section Éléments)."))
+	_removed_box = UiKit.vbox([], 6)
+	col.add_child(_removed_box)
 	_confirm = UiKit.confirm_dialog("Effacer définitivement")
 	_confirm.confirmed.connect(_purge_confirmed)
 	add_child(_confirm)
@@ -83,7 +90,33 @@ func on_show() -> void:
 	_refresh_trash()
 
 
+func _refresh_removed() -> void:
+	for c in _removed_box.get_children():
+		c.queue_free()
+	var lst: Array = app.removed_lines()
+	_removed_head.text = "Lignes retirées (%d)" % lst.size()
+	if lst.is_empty():
+		_removed_box.add_child(UiKit.muted("Aucune."))
+		return
+	for it in lst.slice(0, 200):
+		var en: Dictionary = it.entry
+		var what := ("« %s »" % str(en.get("text", "")).left(160)) if str(en.get("kind", "")) == "element" \
+			else "[[%s]] retiré de %s" % [str(en.get("target", "")), str(en.get("key", ""))]
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+		var l := UiKit.label("%s — %s · %s" % [what, str(en.get("rel", "")).get_file().get_basename(), str(en.get("date", ""))], true, 15)
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(l)
+		var i: int = int(it.i)
+		row.add_child(UiKit.button("Restaurer", func():
+			var r: Dictionary = app.restore_removed(i)
+			main._set_status("Restauré ✓" if r.ok else "NON restauré : " + str(r.get("error", "?")))
+			_refresh_trash(), "Remettre cette ligne ou ce lien dans sa note"))
+		_removed_box.add_child(UiKit.card([row], Color("e0b04a")))
+
+
 func _refresh_trash() -> void:
+	_refresh_removed()
 	for c in _trash_box.get_children():
 		c.queue_free()
 	var lst: Array = app.trash_list()

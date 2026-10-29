@@ -371,7 +371,39 @@ static func _person(app: Node, main: Control, col: VBoxContainer, state: Diction
 
 
 ## Ligne de temps des présences d'une personne (aussi sur sa fiche, en version compacte).
-static func timeline(main: Control, list: Array, conf: Dictionary, compact: bool, limit := 300) -> Control:
+## Suppression ciblée d'une présence (bouton × des fiches) : le présent dans la
+## soirée, le participant d'un événement, la ligne « était présent à », ou l'indice.
+static func removal_of(f: Dictionary) -> Dictionary:
+	match str(f.how):
+		"present":
+			return {"kind": "prop", "rel": str(f.path), "key": "presents", "target": str(f.who)}
+		"incertain":
+			return {"kind": "prop", "rel": str(f.path), "key": "presents_incertains", "target": str(f.who)}
+		"absent":
+			return {"kind": "prop", "rel": str(f.path), "key": "absents", "target": str(f.who)}
+		"participant":
+			return {"kind": "prop", "rel": str(f.path), "key": "participants", "target": str(f.who)}
+		"rapporte":
+			return {"kind": "element", "rel": str(f.path), "block": str(f.block), "text": str(f.text)}
+		"indice":
+			return {"kind": "note", "rel": str(f.path)}
+	return {}
+
+
+static func _x_button(cb: Callable) -> Button:
+	var x := Button.new()
+	x.text = "×"
+	x.flat = true
+	x.focus_mode = Control.FOCUS_NONE
+	x.tooltip_text = "Supprimer seulement ceci (après confirmation)"
+	x.custom_minimum_size = Vector2(40, 40)
+	x.add_theme_color_override("font_color", Color("ff9b8a"))
+	x.add_theme_font_size_override("font_size", 20)
+	x.pressed.connect(cb)
+	return x
+
+
+static func timeline(main: Control, list: Array, conf: Dictionary, compact: bool, limit := 300, on_remove := Callable()) -> Control:
 	var tl := Timeline.new()
 	tl.compact = compact
 	tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -386,6 +418,11 @@ static func timeline(main: Control, list: Array, conf: Dictionary, compact: bool
 		var txt := "%s\n%s" % [_place_text(f), how_text(f)]
 		if str(f.note) != str(f.where) and not str(f.how) in ["rapporte"]:
 			txt += " — d'après " + short(str(f.note))
-		tl.add_entry(str(f.date), txt, color, _open(main, str(f.path)), year != last_year and last_year != "§")
+		var x: Control = null
+		if on_remove.is_valid():
+			var spec := removal_of(f)
+			if not spec.is_empty():
+				x = _x_button(func(): on_remove.call(spec))
+		tl.add_entry(str(f.date), txt, color, _open(main, str(f.path)), year != last_year and last_year != "§", x)
 		last_year = year
 	return tl

@@ -2,26 +2,31 @@ extends RefCounted
 ## Membres d'un groupe (clan, faction, coterie…), d'après :
 ##  - les fiches de personnages dont le `clan` ou la `secte` est ce groupe ;
 ##  - les éléments « est membre de » ou « dirige » qui le visent (§11) ;
-##  - les indices de même relation (sauf réfutés ou obsolètes).
+##  - les indices de même relation (sauf réfutés ou obsolètes) ;
+##  - pour une lignée, son chef (propriété `chef` de sa fiche, format 1.7).
 ## Rien n'est écrit : c'est recalculé depuis les notes (§16).
 
 const Schema := preload("res://core/model/schema.gd")
 const TextNorm := preload("res://core/format/text_norm.gd")
 
-const ROLES := {"membre_de": "membre", "dirige": "dirige"}
+const ROLES := {"membre_de": "membre", "dirige": "dirige", "lignee_de": "de la lignée"}
 
 
 ## [{name, path (fiche du membre, "" si absente), roles: ["membre"…], sources:
 ## [{label, path, cred}], from_fiche (bool)}], dans l'ordre des noms.
 static func of_group(index: RefCounted, group: String) -> Array:
 	var k := TextNorm.name_key(group)
-	var is_lignee := str(index.props_of(index.path_of_name(group)).get("nature", "")) == "lignee"
+	var gprops: Dictionary = index.props_of(index.path_of_name(group))
+	var is_lignee := str(gprops.get("nature", "")) == "lignee"
 	var by := {}
 	var get_row := func(person: String) -> Dictionary:
 		var pk := TextNorm.name_key(person)
 		if not by.has(pk):
 			by[pk] = {"name": person, "path": index.path_of_name(person), "roles": [], "sources": [], "from_fiche": false}
 		return by[pk]
+	var chef := Schema.link_name(gprops.get("chef", "")) if is_lignee else ""
+	if chef != "":
+		(get_row.call(chef).roles as Array).append("chef")
 	for r in index.linked_from(group, ["clan", "secte"]):
 		if str(r.type) != "personnage":
 			continue
@@ -42,7 +47,7 @@ static func of_group(index: RefCounted, group: String) -> Array:
 		var row: Dictionary = get_row.call(person)
 		if not row.roles.has(ROLES[code]):
 			row.roles.append(ROLES[code])
-		row.sources.append({"label": str(r.note), "path": str(r.path), "cred": r.cred})
+		row.sources.append({"label": str(r.note), "path": str(r.path), "cred": r.cred, "origin": "element", "block": str(r.block if r.block != null else ""), "text": str(r.text)})
 	for n in index.notes_with_props("indice", ["relation", "de", "vers", "statut", "credibilite"]):
 		var pr: Dictionary = n.props
 		var code := str(pr.get("relation", ""))
@@ -56,10 +61,14 @@ static func of_group(index: RefCounted, group: String) -> Array:
 		var row: Dictionary = get_row.call(person)
 		if not row.roles.has(ROLES[code]):
 			row.roles.append(ROLES[code])
-		row.sources.append({"label": "indice « %s »" % str(n.name), "path": str(n.path), "cred": pr.get("credibilite")})
+		row.sources.append({"label": "indice « %s »" % str(n.name), "path": str(n.path), "cred": pr.get("credibilite"), "origin": "indice"})
 	var out: Array = by.values()
 	out.sort_custom(func(a, b):
-		# qui dirige d'abord, puis par nom
+		# le chef de lignée, puis qui dirige, puis par nom
+		var ca: bool = a.roles.has("chef")
+		var cb: bool = b.roles.has("chef")
+		if ca != cb:
+			return ca
 		var da: bool = a.roles.has("dirige")
 		var db: bool = b.roles.has("dirige")
 		return da if da != db else TextNorm.fold(a.name) < TextNorm.fold(b.name))
@@ -70,7 +79,7 @@ static func of_group(index: RefCounted, group: String) -> Array:
 static func describe(row: Dictionary) -> String:
 	var parts := PackedStringArray()
 	for r in row.roles:
-		parts.append({"clan": "clan (fiche)", "lignee": "lignée (fiche)", "secte": "secte (fiche)"}.get(r, r))
+		parts.append({"clan": "clan (fiche)", "lignee": "lignée (fiche)", "secte": "secte (fiche)", "chef": "chef de lignée"}.get(r, r))
 	var txt := "%s — %s" % [row.name, ", ".join(parts)]
 	var src: Array = row.sources
 	if src.size() == 1:

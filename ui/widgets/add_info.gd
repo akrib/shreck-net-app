@@ -173,6 +173,10 @@ static func _side_by_side(cols: Array) -> HBoxContainer:
 	return h
 
 
+func _is_lignee() -> bool:
+	return str(spec.get("group_nature", "")) == "lignee"
+
+
 func _title() -> String:
 	if spec.has("title"):
 		return str(spec.title)
@@ -215,7 +219,8 @@ func _build_what() -> void:
 			_a_btn = _pick_button("Choisir le personnage…", "Membre de « %s »" % subject(), ["personnage"])
 			_what.add_child(_a_btn)
 			if not property_mode():
-				_role = UiKit.option_button(["est membre de « %s »" % subject(), "dirige « %s »" % subject()])
+				var first := ("est de la lignée de « %s »" if _is_lignee() else "est membre de « %s »") % subject()
+				_role = UiKit.option_button([first, "dirige « %s »" % subject()])
 				_role.item_selected.connect(func(_i): _refresh())
 				_what.add_child(UiKit.vbox([UiKit.muted("Rôle"), _role], 3))
 		"relation":
@@ -226,7 +231,10 @@ func _build_what() -> void:
 			_rel_opt.item_selected.connect(func(_i): _refresh())
 			_dir_opt = UiKit.option_button(["« %s » … l'autre fiche" % subject(), "l'autre fiche … « %s »" % subject()])
 			_dir_opt.item_selected.connect(func(_i): _refresh())
-			_a_btn = _pick_button("Choisir l'autre fiche…", "Relation avec « %s »" % subject(), [])
+			if str(spec.get("relation", "")) == "lignee_de":
+				_a_btn = _pick_button("Choisir la lignée…", "Lignée de « %s »" % subject(), ["groupe"], ["lignee"])
+			else:
+				_a_btn = _pick_button("Choisir l'autre fiche…", "Relation avec « %s »" % subject(), [])
 			# relation et sens préréglés (« + Sire », « + Infant » des filiations)
 			if spec.has("relation"):
 				for i in _rel_codes.size():
@@ -277,9 +285,10 @@ func _compute() -> Dictionary:
 			if property_mode():
 				var key: String = PROPERTY_NATURES[str(spec.group_nature)]
 				return {"mode": "property", "key": key, "value": s, "missing": "Choisissez le personnage." if _a == "" else ""}
-			var code := "dirige" if _role != null and _role.selected == 1 else "membre_de"
+			var code := "dirige" if _role != null and _role.selected == 1 else ("lignee_de" if _is_lignee() else "membre_de")
+			var verb: String = {"dirige": "dirige", "lignee_de": "est de la lignée de", "membre_de": "est membre de"}[code]
 			return {"mode": "element", "missing": "Choisissez le personnage." if _a == "" else "",
-				"text": ("%s %s %s." % [a, "dirige" if code == "dirige" else "est membre de", s]) if _a != "" else "",
+				"text": ("%s %s %s." % [a, verb, s]) if _a != "" else "",
 				"fields": {"relation": code, "de": a, "vers": s}}
 		"relation":
 			var r: Array = _rel_codes[_rel_opt.selected]

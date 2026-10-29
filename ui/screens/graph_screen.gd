@@ -12,6 +12,7 @@ extends VBoxContainer
 const UiKit := preload("res://ui/ui_kit.gd")
 const Schema := preload("res://core/model/schema.gd")
 const GraphData := preload("res://core/analysis/graph_data.gd")
+const Lineage := preload("res://core/analysis/lineage.gd")
 const Paths := preload("res://core/analysis/paths.gd")
 const GraphView := preload("res://ui/widgets/graph_view.gd")
 const Picker := preload("res://ui/widgets/picker.gd")
@@ -26,7 +27,11 @@ var app: Node
 var main: Control
 var center := ""
 var depth := 1
-var opts := {"relations": true, "indices": true, "faveurs": true, "structure": true, "copresence": false, "max_cred": 6, "max_nodes": 120}
+var opts := {"relations": true, "indices": true, "faveurs": true, "structure": true, "copresence": false, "max_cred": 6, "max_nodes": 120,
+	"lignees": true, "chefs": true, "hide_codes": []}
+## Familles de liens du menu « Liens affichés » : [clé d'option, libellé].
+const LINK_FAMILIES := [["indices", "Indices (liens à vérifier)"], ["faveurs", "Faveurs"], ["structure", "Clan, secte, sire (fiches)"],
+	["lignees", "Lignées déduites"], ["chefs", "Lignées montrées par leur chef"], ["copresence", "Vus ensemble en soirée"]]
 var mode := "relations"   ## « relations » ou « chemin »
 var path_from := ""
 var path_to := ""
@@ -50,6 +55,8 @@ var _to_btn: Button
 var _mode_btn: Button
 var _side: VBoxContainer     ## commandes, filtres et liens du point touché, dans un panneau escamotable
 var _side_panel: Control
+var _links_pop: PopupMenu
+var _links_fill: Callable
 
 
 func setup(p_app: Node, p_main: Control) -> void:
@@ -74,6 +81,7 @@ func setup(p_app: Node, p_main: Control) -> void:
 		depth = i + 1
 		refresh())
 	rel_row.add_child(_depth)
+	rel_row.add_child(_links_menu())
 	_rel_bar = rel_row
 	_side.add_child(rel_row)
 	_rel_fold = FoldableContainer.new()
@@ -110,12 +118,16 @@ func setup(p_app: Node, p_main: Control) -> void:
 	var legend := UiKit.vbox([], 2)
 	for it in [["7fd59b", "alliance, service, appartenance", false], ["ff7a6b", "hostilité", false], ["b9b2c4", "autre lien", false],
 			["e0b04a", "faveur (débiteur → créancier)", true], ["b9b2c4", "indice (lien à vérifier)", true],
-			["9c86c9", "clan, secte, sire", false], ["5d8fb8", "vus ensemble en soirée", false]]:
+			["9c86c9", "clan, secte, sire", false], ["b79cff", "lignée déduite (d'un infant)", true], ["ff7a6b", "lignées qui ne s'accordent pas", true],
+			["5d8fb8", "vus ensemble en soirée", false]]:
 		legend.add_child(_legend_row(Color(it[0]), it[1], it[2], false))
 	for it in [["8fd3ff", "personnage"], ["c8b6ff", "groupe"], ["9be3a8", "domaine, lieu"], ["f5e08a", "autre note"], ["6b6475", "sans fiche"]]:
 		var lr := _legend_row(Color(it[0]), it[1], false, true)
 		(lr.get_child(0) as _Swatch).ring = it[1] == "sans fiche"
 		legend.add_child(lr)
+	var chef_row := _legend_row(Color("b79cff"), "chef de lignée : la lignée est montrée par lui", false, true)
+	(chef_row.get_child(0) as _Swatch).ring = true
+	legend.add_child(chef_row)
 	legend.add_child(UiKit.muted("Passez la souris sur un lien pour lire ce qu'il dit et d'où il vient."))
 	_legend = legend
 	_side.add_child(legend)
@@ -171,6 +183,57 @@ func setup(p_app: Node, p_main: Control) -> void:
 	add_child(body)
 	_update_center_btn()
 	_apply_mode()
+
+
+## Menu « Liens affichés » : toutes les relations, chaque relation, puis les autres familles de liens.
+## Les choix restent cochés tant que l'application est ouverte.
+func _links_menu() -> MenuButton:
+	var mb := MenuButton.new()
+	mb.text = "Liens affichés ▾"
+	mb.flat = false
+	mb.custom_minimum_size.y = UiKit.TOUCH
+	mb.tooltip_text = "Afficher ou cacher les liens de relations, une par une, et les autres liens"
+	var pop := mb.get_popup()
+	pop.hide_on_checkable_item_selection = false
+	var ids := []   ## [genre, valeur] par entrée
+	var fill := func() -> void:
+		pop.clear()
+		ids.clear()
+		pop.add_check_item("Relations (toutes)")
+		pop.set_item_checked(0, bool(opts.relations))
+		ids.append(["all", ""])
+		for o in Schema.options("", "relation"):
+			if str(o[0]) == "present_a":
+				continue
+			pop.add_check_item("      " + str(o[1]))
+			pop.set_item_checked(pop.item_count - 1, bool(opts.relations) and not (opts.hide_codes as Array).has(str(o[0])))
+			pop.set_item_disabled(pop.item_count - 1, not bool(opts.relations))
+			ids.append(["code", str(o[0])])
+		pop.add_separator()
+		ids.append(["sep", ""])
+		for f in LINK_FAMILIES:
+			pop.add_check_item(str(f[1]))
+			pop.set_item_checked(pop.item_count - 1, bool(opts.get(f[0], false)))
+			ids.append(["opt", str(f[0])])
+	pop.about_to_popup.connect(fill)
+	pop.index_pressed.connect(func(i: int):
+		var it: Array = ids[i]
+		match str(it[0]):
+			"all":
+				opts.relations = not bool(opts.relations)
+			"code":
+				var hc: Array = opts.hide_codes
+				if hc.has(it[1]):
+					hc.erase(it[1])
+				else:
+					hc.append(it[1])
+			"opt":
+				opts[it[1]] = not bool(opts.get(it[1], false))
+		fill.call()
+		refresh())
+	_links_pop = pop
+	_links_fill = fill
+	return mb
 
 
 ## Ligne de légende : un trait (plein ou en tirets) ou un point, puis son sens.
@@ -469,6 +532,17 @@ func _on_select(key: String) -> void:
 		return
 	var n: Dictionary = _view.data.nodes[key]
 	_info_title.text = "%s · %s" % [n.name, ("fiche absente" if n.missing else Schema.type_label(str(n.type)))]
+	var heads: Array = n.get("heads", [])
+	if not heads.is_empty():
+		var hl := UiKit.label(Lineage.chef_mention(heads.map(func(h): return str(h.name))), false, 15)
+		hl.add_theme_color_override("font_color", Color("b79cff"))
+		_info_list.add_child(hl)
+		var hrow := UiKit.flow(6)
+		for h in heads:
+			var hp := str(h.path)
+			if hp != "":
+				hrow.add_child(UiKit.button("Fiche : " + str(h.name), func(): main.open_note(hp)))
+		_info_list.add_child(hrow)
 	var actions := UiKit.flow(6)
 	if not n.missing:
 		var p: String = n.path

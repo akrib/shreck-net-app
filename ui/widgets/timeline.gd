@@ -36,7 +36,7 @@ static func is_exact(edtf: String) -> bool:
 
 
 ## Ajoute une entrée. `year_break` : vrai pour la première entrée d'une année.
-func add_entry(edtf: String, text: String, color: Color, on_press: Callable, year_break := false) -> Button:
+func add_entry(edtf: String, text: String, color: Color, on_press: Callable, year_break := false, extra: Control = null) -> Button:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	var cell := _Rail.new()
@@ -65,6 +65,8 @@ func add_entry(edtf: String, text: String, color: Color, on_press: Callable, yea
 		b.add_theme_color_override("font_color", color)
 	pad.add_child(b)
 	row.add_child(pad)
+	if extra != null:
+		row.add_child(extra)
 	# la date apparaît dès que la souris passe sur l'entrée (le point ou le texte)
 	for c in [b, cell]:
 		c.mouse_entered.connect(func(): cell.set_hover(true))

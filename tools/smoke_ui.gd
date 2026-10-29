@@ -296,6 +296,28 @@ func _run() -> void:
 	gs.path_opts.copresence = false
 	gs._toggle_mode()
 	_ok(gs.mode == "relations", "retour aux relations")
+	# « Liens affichés » : cacher une relation, puis toutes
+	main.show_graph("")
+	await process_frame
+	var count_code := func(code: String) -> int:
+		return (gs._view.data.edges as Array).filter(func(e): return str(e.kind) in ["relation", "indice"] and str(e.code) == code).size()
+	var n_membre: int = count_code.call("membre_de")
+	gs._links_fill.call()
+	var at_membre := -1
+	for i in gs._links_pop.item_count:
+		if gs._links_pop.get_item_text(i).strip_edges() == "est membre de":
+			at_membre = i
+	gs._links_pop.index_pressed.emit(at_membre)
+	await process_frame
+	_ok(n_membre > 0 and count_code.call("membre_de") == 0 and not gs._links_pop.is_item_checked(at_membre), "« Liens affichés » : « est membre de » caché (%d lien(s) avant)" % n_membre)
+	gs._links_pop.index_pressed.emit(at_membre)
+	gs._links_pop.index_pressed.emit(0)
+	await process_frame
+	var n_rel := (gs._view.data.edges as Array).filter(func(e): return str(e.kind) == "relation").size()
+	_ok(n_rel == 0 and gs._links_pop.is_item_disabled(at_membre), "« Relations (toutes) » décoché : aucun lien de relation")
+	gs._links_pop.index_pressed.emit(0)
+	await process_frame
+	_ok(count_code.call("membre_de") == n_membre, "relations réaffichées")
 
 	# --- rapport de soirée, depuis la fiche de soirée
 	main.open_note("Soirees/2026/2026-10-10 Valombre - Assemblée.md")
@@ -699,10 +721,10 @@ func _run() -> void:
 	await process_frame
 	dlg3._a = "Victor Morel"
 	dlg3._refresh()
-	_ok(not dlg3.property_mode() and dlg3._text.text == "[[Victor Morel]] est membre de [[Toreador antitribu]].", "lignée : un élément « est membre de », pas le clan de la fiche")
+	_ok(not dlg3.property_mode() and dlg3._text.text == "[[Victor Morel]] est de la lignée de [[Toreador antitribu]].", "lignée : un élément « est de la lignée de », pas le clan de la fiche")
 	dlg3._apply()
 	await process_frame
-	_ok(_read(vault, "Personnages/Victor Morel.md").contains("clan: \"[[Toreador]]\"") and members_text.call().contains("Victor Morel — membre"), "Victor Morel reste Toreador, membre de la lignée")
+	_ok(_read(vault, "Personnages/Victor Morel.md").contains("clan: \"[[Toreador]]\"") and members_text.call().contains("Victor Morel — de la lignée"), "Victor Morel reste Toreador, de la lignée Toreador antitribu")
 
 	# --- « + » d'une fiche de personnage : nomination (élément + titres), information libre
 	main.open_note("Personnages/Victor Morel.md")
@@ -769,13 +791,20 @@ func _run() -> void:
 	main.close_overlay(drt)
 	await process_frame
 
-	# --- filiations : vide, puis « + Infant » depuis l'écran ; clans et lignées
+	# --- filiations : point de départ (Victor, de la lignée Toreador antitribu), « + Infant », export, retour
 	main.open_note("Personnages/Victor Morel.md")
 	await process_frame
+	var lig_txt := ""
+	for fc in note.find_children("*", "FoldableContainer", true, false):
+		if str(fc.title).begins_with("Lignées") and not fc.is_queued_for_deletion():
+			lig_txt = str(fc.title)
+			for b in fc.find_children("*", "Button", true, false):
+				lig_txt += " | " + str(b.text)
+	_ok(lig_txt.begins_with("Lignées (1)") and lig_txt.contains("Toreador antitribu — déclarée") and lig_txt.contains("+ Lignée"), "fiche : section Lignées (%s)" % lig_txt.left(90))
 	(find_btn.call("Filiation") as Button).pressed.emit()
 	await process_frame
 	var fl = main.screens.filiations
-	_ok(main.current == "filiations" and fl.tree.node_count() == 0 and fl._info.text.begins_with("Aucun sire ni infant"), "filiations : aucun lien dans le coffre d'exemple")
+	_ok(main.current == "filiations" and fl.start_key == "victor morel" and fl.tree.node_count() == 2, "filiations : point de départ Victor Morel, avec sa lignée (%d nœuds)" % fl.tree.node_count())
 	fl._add("Victor Morel", 0)
 	await process_frame
 	var dinf = main._overlays[-1]
@@ -784,16 +813,138 @@ func _run() -> void:
 	_ok(dinf._text.text == "[[Victor Morel]] est le sire de [[Élise Varga]]." and dinf._title() == "Infant de « Victor Morel »", "« + Infant » : relation et sens préréglés")
 	dinf._apply()
 	await process_frame
-	_ok(fl.tree.node_count() == 2 and fl._fams.size() == 1 and str(fl._fams[0].label) == "Lignage de Victor Morel" and fl.tree.selected == "victor morel",
-		"l'arbre se redessine : %s" % fl._info.text.left(60))
+	_ok(fl.tree.node_count() == 3 and fl._fams.size() == 1 and str(fl._fams[0].label) == "Toreador antitribu" and fl.tree.selected == "victor morel",
+		"l'arbre se redessine : lignée → Victor → Élise (%d nœuds)" % fl.tree.node_count())
+	var md: String = fl.export_markdown()
+	_ok(md.contains("- [[Toreador antitribu]] — lignée") and md.contains("\n  - [[Victor Morel]] — Toreador") and md.contains("· de la lignée (selon [[") and md.contains("\n    - [[Élise Varga]]") and md.contains("· infant (selon [["),
+		"export Markdown : l'arbre en liste, avec ses sources")
+	fl.export_to_clipboard()
+	_ok(main._status.text.begins_with("Lignage copié"), "export : " + main._status.text)
 	fl.find("élise")
-	_ok(fl.tree.selected == "élise varga" and fl._side.get_child_count() > 3, "recherche : Élise Varga choisie, son sire affiché")
+	_ok(fl.start_key == "élise varga" and fl.tree.selected == "élise varga" and fl.tree.node_count() == 3, "recherche : Élise Varga en point de départ, son sire et sa lignée au-dessus")
+	fl.show_all = true
+	fl.start_key = ""
+	fl._refresh()
+	_ok(fl.tree.node_count() == 3 and fl._shown.size() == 1, "« Tout afficher »")
+	var back_btn: Button = null
+	for b in fl.find_children("*", "Button", true, false):
+		if str(b.text) == "← Enquête":
+			back_btn = b
+	back_btn.pressed.emit()
+	await process_frame
+	_ok(main.current == "enquete", "« ← Enquête » depuis les filiations")
 	main.open_note("Groupes/Toreador.md")
 	await process_frame
 	(find_btn.call("Clans et lignées") as Button).pressed.emit()
 	await process_frame
 	_ok(main.current == "filiations" and fl.tab == "lignees" and fl.tree.selected == "clan:Toreador" and fl.tree.pos.has("lig:Toreador antitribu"),
 		"clans et lignées : Toreador choisi ; la lignée sans clan apparaît sous « Clan inconnu »")
+
+	# --- chef de lignée (1.7) : Victor, chef de Toreador antitribu ; sa case montre la lignée
+	main.open_note(str(lg.rel))
+	await process_frame
+	var chef_txt := ""
+	for fc in note.find_children("*", "FoldableContainer", true, false):
+		if str(fc.title).begins_with("Chef de lignée") and not fc.is_queued_for_deletion():
+			chef_txt = str(fc.title)
+			for c in fc.find_children("*", "Label", true, false):
+				chef_txt += " | " + str(c.text)
+			for b in fc.find_children("*", "Button", true, false):
+				chef_txt += " | " + str(b.text)
+	_ok(chef_txt.begins_with("Chef de lignée — à renseigner") and chef_txt.contains("Non renseigné") and chef_txt.contains("Choisir le chef…"),
+		"fiche de la lignée : chef non renseigné, recommandé (%s)" % chef_txt.left(70))
+	note.set_link_property("chef", "Victor Morel")
+	await process_frame
+	_ok(_read(vault, str(lg.rel)).contains("chef: \"[[Victor Morel]]\"") and note._status.text.begins_with("Enregistré"), "chef écrit dans la fiche de la lignée : " + note._status.text)
+	main.show_lineage("sires", "Victor Morel")
+	await process_frame
+	var vt: Dictionary = fl.tree.trees[0].nodes.get("victor morel", {}) if not fl.tree.trees.is_empty() else {}
+	_ok(not fl.tree.pos.has("lig:toreador antitribu") and str(vt.get("head", "")) == "Chef de la lignée Toreador antitribu" and float(fl.tree.heights.get("victor morel", 0.0)) > fl.tree.NODE_H,
+		"lignage : plus de case pour la lignée ; celle de Victor dit « %s »" % str(vt.get("head", "")))
+	var side_txt := ""
+	for c in fl._side.find_children("*", "Label", true, false):
+		side_txt += str(c.text) + " | "
+	_ok(side_txt.contains("Chef de la lignée Toreador antitribu") and side_txt.contains("Membres déclarés"), "panneau de Victor : sa lignée, ses membres")
+	main.show_graph("Victor Morel")
+	await process_frame
+	var gdata: Dictionary = main.screens.graphe._view.data
+	_ok(gdata.nodes.has("victor morel") and (gdata.nodes["victor morel"].heads as Array).size() == 1 and not gdata.nodes.has("toreador antitribu"),
+		"graphe : Victor porte la mention, la lignée n'a plus sa case")
+
+	# --- croix × : une seule information, un seul lien ; restauration depuis les Réglages
+	main.open_note("Personnages/Victor Morel.md")
+	await process_frame
+	var x_btn: Button = null
+	for fc in note.find_children("*", "FoldableContainer", true, false):
+		if str(fc.title).begins_with("Ce que disent les sources") and not fc.is_queued_for_deletion():
+			for row in fc.find_children("*", "HBoxContainer", true, false):
+				if row.get_child_count() == 2 and str((row.get_child(0) as Button).text).contains("boite depuis l'incendie") and str((row.get_child(1) as Button).text) == "×":
+					x_btn = row.get_child(1)
+	_ok(x_btn != null, "fiche : une croix × à côté de l'information")
+	x_btn.pressed.emit()
+	await process_frame
+	_ok(note._confirm.visible and note._confirm.dialog_text.contains("boite depuis l'incendie") and note._confirm.dialog_text.contains("Seule cette ligne"), "confirmation : ce qui sera retiré, et seulement cela")
+	note._confirm.hide()
+	note._on_confirmed()
+	await process_frame
+	var day_txt := _read(vault, day.rel)
+	_ok(not day_txt.contains("boite depuis l'incendie") and day_txt.contains("Prévôt de Valombre") and note._status.text.begins_with("Supprimé ✓"), "la ligne est retirée, les autres restent : " + note._status.text)
+	var ls_spec: Dictionary = preload("res://ui/widgets/alibi_view.gd").removal_of({"how": "present", "path": str(last_soiree.path), "who": "Victor Morel"})
+	note.confirm_remove(ls_spec)
+	await process_frame
+	_ok(note._confirm.dialog_text.contains("Retirer [[Victor Morel]]") and note._confirm.dialog_text.contains("présents"), "présence : retirer Victor des présents de la soirée")
+	note._confirm.hide()
+	note._on_confirmed()
+	await process_frame
+	_ok(not _read(vault, last_soiree.path).contains("[[Victor Morel]]") and _read(vault, last_soiree.path).contains("[[Élise Varga]]"), "seul Victor Morel quitte les présents")
+	main.show_screen("coffre")
+	await process_frame
+	var cs2 = main.screens.coffre
+	_ok(cs2._removed_head.text == "Lignes retirées (2)", "Réglages : " + cs2._removed_head.text)
+	var j: Array = app.removed_lines()
+	var line_entry: Dictionary = j.filter(func(x): return str(x.entry.kind) == "element")[0]
+	_ok(app.restore_removed(int(line_entry.i)).ok and _read(vault, day.rel).contains("boite depuis l'incendie"), "restaurée : la ligne revient dans sa note")
+	cs2._refresh_trash()
+	await process_frame
+	_ok(cs2._removed_head.text == "Lignes retirées (1)", "il reste le lien retiré")
+
+	# --- à réparer : une lignée notée clan, un nom de fichier mal encodé (dézippage sans UTF-8)
+	var wf := func(rel: String, txt: String) -> void:
+		var fh := FileAccess.open(vault + "/" + rel, FileAccess.WRITE)
+		fh.store_string(txt)
+		fh.close()
+	wf.call("Groupes/Lignée de Test.md", "---\ntype: groupe\nid: grp-7f000001\nschema: 1\nnature: clan\n---\n# Lignée de Test\n")
+	wf.call("Personnages/Ab├¬l Test.md", "---\ntype: personnage\nid: per-7f000002\nschema: 1\n---\n")
+	app.start_sync()
+	await _wait_jobs(app)
+	main.show_screen("enquete")
+	enq.show_tab("trancher")
+	await process_frame
+	var fix_button := func(prefix: String) -> Button:
+		for b in enq._list.find_children("*", "Button", true, false):
+			if str(b.text).begins_with(prefix) and not b.is_queued_for_deletion():
+				return b
+		return null
+	var nb: Button = fix_button.call("Passer en lignée (1)")
+	_ok(nb != null and enq._list.get_child(0) is Label and str(enq._list.get_child(0).text).begins_with("À réparer"), "à trancher : « À réparer » en tête, avec « Passer en lignée (1) »")
+	nb.pressed.emit()
+	await process_frame
+	_ok(enq._confirm.visible and enq._confirm.dialog_text.contains("Seule la propriété « nature »"), "réparation : confirmation d'abord")
+	enq._confirm.hide()
+	enq._do_fix()
+	await process_frame
+	_ok(_read(vault, "Groupes/Lignée de Test.md").contains("nature: lignee") and enq._info.text.begins_with("Réparé : 1."), "la lignée est réparée : " + enq._info.text.left(40))
+	var rb: Button = fix_button.call("Renommer (1)")
+	_ok(rb != null, "nom mal encodé : « Renommer (1) »")
+	rb.pressed.emit()
+	await process_frame
+	enq._confirm.hide()
+	enq._do_fix()
+	await _wait_jobs(app)
+	await process_frame
+	_ok(FileAccess.file_exists(vault + "/Personnages/Abêl Test.md") and not FileAccess.file_exists(vault + "/Personnages/Ab├¬l Test.md") and app.index.path_of_name("Abêl Test") != "",
+		"fichier renommé, index à jour")
+	_ok(fix_button.call("Renommer") == null and fix_button.call("Passer en") == null, "plus rien à réparer")
 
 	# --- diagnostic, vérification, reconstruction
 	main.show_screen("diag")
@@ -803,7 +954,7 @@ func _run() -> void:
 	_ok(main.screens.diag._report.text.contains("identique à l'index : OUI"), "vérification : reconstruction identique")
 	app.start_rebuild()
 	await _wait_jobs(app)
-	_ok(app.index != null and app.index.stats().files == 31, "reconstruction : 31 notes, avec « Mes notes » du jour et la lignée (%d)" % app.index.stats().files)
+	_ok(app.index != null and app.index.stats().files == 33, "reconstruction : 33 notes, avec « Mes notes » du jour, les lignées et la fiche renommée (%d)" % app.index.stats().files)
 	# --- plein écran : réglage mémorisé, F11 bascule
 	var was: bool = main.is_fullscreen()
 	main.toggle_fullscreen()

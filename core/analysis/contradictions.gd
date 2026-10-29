@@ -9,8 +9,14 @@ extends RefCounted
 ##  - poste : un poste qu'une seule personne tient à la fois (Prince, Sénéchal,
 ##    Shérif, Fléau, Maître des Harpies, Harpie majeure) écrit sur deux fiches en vie ;
 ##  - faveur : une faveur en cours dont une partie est morte ou disparue ;
-##  - identite : deux fiches qui portent le même nom ou alias, ou marquées
-##    « peut-être la même personne ».
+##  - identite : deux fiches qui portent le même nom ou alias (aux accents, tirets
+##    et apostrophes près pour les noms sans précision entre parenthèses), ou
+##    marquées « peut-être la même personne » ;
+##  - reparer : des notes à réparer, avec un bouton qui le fait après confirmation :
+##    groupes dont la nature contredit le nom (« Lignée de… » notée clan), noms de
+##    fichiers mal encodés (« Kr├Âner »), clan d'une fiche qui n'est pas un clan ;
+##  - completer : ce qu'il est recommandé de renseigner (le chef d'une lignée, 1.7),
+##    avec un bouton quand le nom de la lignée désigne une fiche.
 ## Les éléments de crédibilité 5 (réfutés) ne comptent pas.
 ## Chaque entrée : {kind, label, title, detail (lignes d'explication), paths (notes en
 ## cause), who (noms), key, items (facultatif : les notes listées une à une)}.
@@ -18,10 +24,13 @@ extends RefCounted
 const Schema := preload("res://core/model/schema.gd")
 const TextNorm := preload("res://core/format/text_norm.gd")
 const Where := preload("res://core/analysis/whereabouts.gd")
+const Mojibake := preload("res://core/format/mojibake.gd")
+const Lineage := preload("res://core/analysis/lineage.gd")
 
-const KIND_ORDER := {"deux_endroits": 0, "sire": 1, "relation": 2, "poste": 3, "faveur": 4, "identite": 5}
-const KIND_LABEL := {"deux_endroits": "Vu à deux endroits", "sire": "Deux sires", "relation": "Allié et ennemi",
-	"poste": "Poste tenu deux fois", "faveur": "Faveur et mort", "identite": "Même personne ?"}
+const KIND_ORDER := {"reparer": 0, "deux_endroits": 1, "sire": 2, "relation": 3, "poste": 4, "faveur": 5, "identite": 6, "completer": 7}
+const KIND_LABEL := {"reparer": "À réparer", "deux_endroits": "Vu à deux endroits", "sire": "Deux sires", "relation": "Allié et ennemi",
+	"poste": "Poste tenu deux fois", "faveur": "Faveur et mort", "identite": "Même personne ?", "completer": "À compléter"}
+const NATURE_LABEL := {"lignee": "lignée", "faction": "faction", "coterie": "coterie", "meute": "meute", "clan": "clan"}
 const UNIQUE_POSTES := ["prince", "senechal", "sherif", "fleau", "maitre des harpies", "harpie majeure"]
 const GONE := ["mort_finale", "disparu"]
 
@@ -63,6 +72,8 @@ static func build(index: RefCounted, all_facts := []) -> Array:
 	_postes(people, out)
 	_faveurs(index, people, out)
 	_identities(index, people, out)
+	_repairs(index, out)
+	_chefs(index, out)
 	out.sort_custom(func(a, b):
 		if a.kind != b.kind:
 			return KIND_ORDER[a.kind] < KIND_ORDER[b.kind]
@@ -254,8 +265,128 @@ static func _identities(index: RefCounted, people: Dictionary, out: Array) -> vo
 			var other := TextNorm.name_key(Schema.link_name(x))
 			if people.has(other):
 				add_pair.call(p, people[other], "%s est marqué(e) « peut-être la même personne que » %s" % [p.name, people[other].name])
+	# même nom aux accents, tirets et apostrophes près (« Louis-Joseph de Calonne »
+	# et « Louis Joseph de Calonne ») ; pas les homonymes précisés « Nom (Ville) »
+	var by_spelling := {}
+	for k in people:
+		var nm := str(people[k].name)
+		if nm.contains("("):
+			continue
+		var sk := spelling_key(nm)
+		if sk != "":
+			if not by_spelling.has(sk):
+				by_spelling[sk] = []
+			by_spelling[sk].append(people[k])
+	for sk in by_spelling:
+		var grp: Array = by_spelling[sk]
+		for i in grp.size():
+			for j in range(i + 1, grp.size()):
+				add_pair.call(grp[i], grp[j], "même nom aux accents, tirets et apostrophes près")
 	for r in index.alias_collisions():
 		var ka := TextNorm.name_key(str(r.a_name))
 		var kb := TextNorm.name_key(str(r.b_name))
 		if people.has(ka) and people.has(kb):
 			add_pair.call(people[ka], people[kb], "« %s » désigne les deux fiches (nom ou alias)" % str(r.alias))
+
+
+## Clé d'orthographe d'un nom : minuscules, sans accents ni signes (« Fher Ag'illi »
+## et « Fher Ag Illi » donnent « fheragilli »).
+static func spelling_key(name: String) -> String:
+	var f := TextNorm.fold(name)
+	var out := ""
+	for i in f.length():
+		var c := f.unicode_at(i)
+		if (c >= 97 and c <= 122) or (c >= 48 and c <= 57) or c > 127:
+			out += f[i]
+	return out
+
+
+## Notes à réparer, chacune avec sa réparation (`fix`) :
+##  - {action: "nature", value, paths} : groupes dont le nom annonce une autre nature ;
+##  - {action: "rename", pairs: [[chemin, nouveau chemin]…]} : noms mal encodés ;
+##  - clans de fiches qui ne sont pas des clans : rien d'automatique, la fiche à ouvrir.
+static func _repairs(index: RefCounted, out: Array) -> void:
+	# 1. nature d'un groupe contredite par son nom
+	var groups: Array = index.notes_with_props("groupe", ["nature"])
+	var nature_of := {}
+	var wrong := {}
+	for g in groups:
+		var nat := str(g.props.get("nature", ""))
+		nature_of[TextNorm.name_key(str(g.name))] = nat
+		var implied := Schema.group_nature_from_name(str(g.name))
+		if implied != "" and nat != implied:
+			if not wrong.has(implied):
+				wrong[implied] = []
+			wrong[implied].append(g)
+	for implied in wrong:
+		var lst: Array = wrong[implied]
+		var label: String = NATURE_LABEL.get(implied, implied)
+		var detail := ["Le nom annonce une %s, la note dit autre chose : %s." % [label, ", ".join(PackedStringArray(lst.map(func(g):
+			return "%s (%s)" % [g.name, str(g.props.get("nature", "")) if str(g.props.get("nature", "")) != "" else "sans nature"])))]]
+		if implied == "lignee":
+			detail.append("Tant qu'elles ne sont pas de nature « lignée », les filiations et les lignages les ignorent.")
+		_add(out, "reparer", "%d groupe(s) à passer en %s" % [lst.size(), label], detail,
+			lst.map(func(g): return str(g.path)), lst.map(func(g): return str(g.name)))
+		out[-1]["key"] = "reparer:nature:" + implied
+		out[-1]["fix"] = {"action": "nature", "value": implied, "paths": lst.map(func(g): return str(g.path)),
+			"label": "Passer en %s (%d)" % [label, lst.size()]}
+	# 2. noms de fichiers mal encodés
+	var pairs := []
+	var shown := []
+	for f in index.rows("SELECT path, name FROM files", []):
+		var nm := str(f.name)
+		if Mojibake.suspect(nm):
+			var good := Mojibake.fix(nm)
+			if good != nm and not Mojibake.suspect(good):
+				var rel := str(f.path)
+				pairs.append([rel, rel.get_base_dir().path_join(good + "." + rel.get_extension())])
+				shown.append("%s → %s" % [nm, good])
+	if not pairs.is_empty():
+		_add(out, "reparer", "%d nom(s) de fichier mal encodé(s)" % pairs.size(),
+			["Accents abîmés par un dézippage sans UTF-8 : les liens vers ces notes ne les trouvent pas."] + shown,
+			pairs.map(func(x): return str(x[0])), shown)
+		out[-1]["key"] = "reparer:noms"
+		out[-1]["fix"] = {"action": "rename", "pairs": pairs, "label": "Renommer (%d)" % pairs.size()}
+	# 3. clan d'une fiche qui n'est ni un clan ni une lignée
+	for p in index.notes_with_props("personnage", ["clan"]):
+		var c := Schema.link_name(p.props.get("clan", ""))
+		if c == "":
+			continue
+		var nat: String = nature_of.get(TextNorm.name_key(c), "?")
+		if nat != "?" and not nat in ["clan", "lignee"]:
+			_add(out, "reparer", "%s : son clan, « %s », est une %s" % [p.name, c, NATURE_LABEL.get(nat, nat if nat != "" else "note sans nature")],
+				["Retirez le clan (croix × dans la fiche) et notez l'appartenance avec « + Membre »."],
+				[str(p.path), str(index.path_of_name(c))], [str(p.name), c])
+
+
+## Lignées sans chef (format 1.7 : facultatif, recommandé). Quand le nom désigne
+## une seule fiche (« Lignée de Karios » : Karios), elle est proposée, et un bouton
+## l'écrit ({action: "chef", pairs: [[chemin de la lignée, chef]…]}).
+static func _chefs(index: RefCounted, out: Array) -> void:
+	var pairs := []
+	var shown := []
+	var none := []
+	var none_paths := []
+	for g in index.notes_with_props("groupe", ["nature", "clan", "chef"]):
+		if str(g.props.get("nature", "")) != "lignee" or Schema.link_name(g.props.get("chef", "")) != "":
+			continue
+		var c: Array = Lineage.chef_candidates(index, str(g.name), Schema.link_name(g.props.get("clan", "")))
+		if c.size() == 1:
+			pairs.append([str(g.path), str(c[0])])
+			shown.append("%s → %s" % [g.name, c[0]])
+		elif Schema.group_nature_from_name(str(g.name)) == "lignee":
+			# « Lignée de X » : une lignée de personne, qui gagne à avoir son chef ; les
+			# lignées des règles (Anda, Gargouilles…) n'en ont pas forcément
+			none.append(str(g.name))
+			none_paths.append(str(g.path))
+	if not pairs.is_empty():
+		_add(out, "completer", "%d lignée(s) sans chef : chef proposé d'après le nom" % pairs.size(),
+			["Recommandé : la lignée est alors montrée par son chef dans les lignages et le graphe, et ses lignées d'origine se déduisent de celles du chef."] + shown,
+			pairs.map(func(x): return str(x[0])), shown)
+		out[-1]["key"] = "completer:chefs"
+		out[-1]["fix"] = {"action": "chef", "pairs": pairs, "label": "Renseigner (%d)" % pairs.size()}
+	if not none.is_empty():
+		_add(out, "completer", "%d lignée(s) sans chef, sans proposition" % none.size(),
+			["Leur nom ne désigne aucune fiche, ou plusieurs : à choisir sur la fiche de la lignée (« Choisir le chef… »). Les lignées des règles (Anda, Gargouilles…) ne sont pas comptées.", ", ".join(PackedStringArray(none))],
+			none_paths, none)
+		out[-1]["key"] = "completer:chefs-libres"

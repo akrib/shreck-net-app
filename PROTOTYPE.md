@@ -1,12 +1,133 @@
-# Nosferatu Intelligence — version 0.18
+# Nosferatu Intelligence — version 0.21
 
-*24 octobre 2026 · Godot 4.7.x · format du coffre v1.5 · version PC*
+*29 octobre 2026 · Godot 4.7.x · format du coffre v1.7 · version PC*
 
-La 0.18 dessine les **filiations** en arbres (sires et infants, clans et lignées). Elle corrige aussi l'ajout d'un membre à une lignée : il ne touche plus au clan de la fiche. Aucune note existante n'est concernée.
+La 0.21 ajoute le **chef de lignée**, facultatif mais recommandé. Une lignée qui a un chef n'a plus de case à elle, ni dans les lignages, ni dans le graphe : c'est la case de son chef, avec la mention « Chef de la lignée de Karios ». Le format passe en 1.7 ; aucune note existante n'est concernée.
 
 ---
 
-## 1. Ce qui change dans la 0.18 : filiations, lignées
+## 1. Ce qui change dans la 0.21 : chef de lignée
+
+**Le chef d'une lignée** (format 1.7)
+- La fiche d'une lignée a une propriété *Chef de lignée* (`chef: "[[Karios]]"`). Elle ne s'affiche que pour une lignée.
+- La section *Chef de lignée* de la fiche :
+  - montre le chef, avec une croix × pour le retirer ;
+  - sinon, rappelle que c'est recommandé, propose le chef que désigne le nom (« Lignée de Karios » : Karios), et offre *Choisir le chef…*.
+- Le chef vient en tête des *Membres connus* de sa lignée. Sa fiche dit, dans la section *Lignées* : « Chef de la lignée de Karios ».
+
+**Lignages (Enquête → Filiations)**
+- La case « Lignée de Karios » disparaît. La case de Karios, cadre violet, porte la mention « Chef de la lignée de Karios ».
+- Les liens de la lignée partent de lui :
+  - ses membres ;
+  - les lignées qui en sont issues.
+- Un lien que dit déjà le trait sire → infant n'est pas doublé.
+- Le panneau du chef montre ses sires et ses infants, puis sa lignée : lignée d'origine, lignées issues, membres déclarés et déduits, et les boutons *+ Membre*, *+ Lignée d'origine*, *Changer de chef…*.
+- Une lignée sans chef garde sa case violette. Son panneau propose le chef d'après le nom, ou *Chef de lignée…*.
+- Chercher « Lignée de Karios » mène à la case de Karios.
+- *Clans et lignées* affiche le chef sous chaque lignée.
+- Correction : en arrivant sur l'écran depuis une fiche, le point de départ est bien cadré. Avant, il pouvait rester hors de vue.
+
+**Ce que le chef apporte au calcul**
+- Le chef est de sa lignée. La déduction s'arrête à lui : son sire n'en est pas, même sans rien noter.
+- Les lignées entre elles se déduisent de leurs chefs.
+  - Exemple : Istvan, chef de la lignée d'Istvan, est l'infant de Karios, chef de la lignée de Karios. La lignée d'Istvan descend donc de celle de Karios, sans élément à écrire.
+  - Ces liens déduits apparaissent en pointillés violets.
+
+**Graphe des relations**
+- La lignée qui a un chef est montrée par lui : un anneau violet, et la mention sous son nom.
+- Un lien vers la lignée passe à son chef, en le disant, par exemple « est allié de Karios (Lignée de Karios) ».
+- Le panneau du chef rappelle sa lignée, avec sa fiche.
+- *Liens affichés ▾ → Lignées montrées par leur chef* : décocher pour revoir la case de la lignée.
+
+**Enquête → À trancher → À compléter**
+- Les lignées sans chef, avec le chef proposé d'après le nom :
+  - *Renseigner (N)* les écrit toutes, après une confirmation qui les liste ;
+  - les autres lignées sont à choisir sur leur fiche.
+- La proposition cherche la fiche du même nom, aux accents près :
+  - « de la Dame Noire » : La Dame Noire ;
+  - « du Chroniqueur » : Le Chroniqueur ;
+  - un alias : Carnage, alias de Hans Guteberg ;
+  - un homonyme précisé du clan de la lignée : Stanislas (Paris) plutôt que Stanislas (Lille), Brujah.
+
+**Sur votre coffre du 29 octobre**, après *Passer en lignée* et le lot du 29 octobre :
+- *À compléter* propose le chef de 25 lignées : Karios, Istvan, Macrin, Carolus, Rogue, Stanislas (Paris), La Dame Noire, Gérald, Crucifix, l'Apothicaire, Le Chroniqueur, Cocyte, Amaerovan, Adalberon, Calikos, Senecq, Hans Guteberg (Carnage), Uther de Savoie, Léonce (Lille), Enion, Mephisto (Lille), Darius, Dimitrius, Ferrand et Lansquenet. Vérifiez les quatre derniers : ce sont des fiches du même nom, mais rien ne dit qu'elles sont bien ces chefs.
+- 7 lignées « Lignée de… » restent sans proposition : Alchimistes, Ishtarr, Ananke, Koldun, L'Autarkys, Trancavel, Joueur d'Échecs.
+- Les lignages passent de 62 à 59 : les cases de lignée rejoignent leurs chefs.
+- Les incohérences restent celles du rapport du lot. Une s'y ajoute : Cocyte, chef de sa lignée, reçoit par son infant Enion la lignée d'Uther de Savoie. C'est la question d'Enion (Uther, puis Cocyte), déjà posée.
+
+## 2. La 0.20 : réparations
+
+**Une lignée créée à la volée est une lignée**
+- Un groupe créé depuis un choix de fiche (*+ Membre*, champ *Clan*…) ou depuis *Nouvelle note* prend la nature que son nom annonce :
+  - « Lignée de… » : lignée ;
+  - « Faction… » : faction ;
+  - « Coterie… » : coterie ;
+  - « Meute… » : meute.
+- Avant, il prenait « clan », la valeur par défaut. C'est arrivé à 18 de vos lignées, que les filiations ignoraient.
+- Une nature choisie dans le formulaire (autre que « clan ») est respectée.
+
+**Enquête → À trancher → À réparer**, en tête de liste. Chaque point a son bouton, qui répare après confirmation :
+- **Groupes dont la nature contredit le nom** : *Passer en lignée (18)*. Seule la propriété `nature` change. Les membres déjà notés comptent aussitôt dans les filiations.
+- **Noms de fichiers mal encodés** (« Joséphine Du Fr├¬ne », dézippage sans UTF-8) : *Renommer (8)*.
+  - La note garde son dossier, son contenu et son identifiant.
+  - Les liens qui visaient déjà le bon nom la trouvent.
+  - Un nom déjà pris n'est jamais écrasé.
+- **Clan d'une fiche qui n'est pas un clan** (Danielle : Faction Humaniste) : signalé, à corriger dans la fiche (croix ×, puis *+ Membre*).
+- *Écarter* reste possible pour chaque point.
+
+**Même personne ?**
+- Ce point compte aussi les fiches dont les noms ne diffèrent que par les accents, les tirets ou les apostrophes, par exemple « Louis-Joseph de Calonne » et « Louis Joseph de Calonne ».
+- Votre coffre en a 20 paires, chacune avec *Fusionner*.
+- Les homonymes précisés (« Marc (Lyon) », « Marc (Lille) ») ne sont pas concernés.
+
+**Sur votre coffre du 29 octobre**
+- À réparer :
+  - 18 lignées notées « clan » ;
+  - 8 noms mal encodés, que cherchent 19 liens (dont 14 vers Joséphine Du Frêne) ;
+  - 2 clans qui sont des factions.
+- Après *Passer en lignée* :
+  - 50 lignées au lieu de 32, et 55 lignages ;
+  - 8 personnes ont des lignées qui ne s'accordent pas. Le lot « 2026-10-29 lignées et filiations » les rend cohérentes, sauf 3 qu'explique son rapport.
+- Le calcul des points à trancher prend environ une seconde.
+
+## 3. La 0.19 : lignées, lignages, croix
+
+**« Est de la lignée de »** (format 1.6)
+- Une nouvelle relation, d'une personne ou d'une lignée vers une lignée. Elle est dans *+ Relation*, et *+ Lignée* sur une fiche de personnage la propose déjà réglée.
+- *+ Membre* sur une lignée l'écrit désormais. Vos « est membre de » vers une lignée restent lus de la même façon : rien à reprendre.
+- **Une lignée issue d'une autre** : sur la fiche de la lignée, « [[Lignée de Macrin]] est de la lignée de [[Lignée de Karios]] » (*+ Lignée d'origine* dans les filiations).
+- **Déduction** : si toto est l'infant de tata et de la lignée tutu, tata est aussi de la lignée tutu, et ainsi de sire en sire. La déduction s'arrête au sire déclaré d'une lignée plus ancienne (le sire du fondateur). Elle n'est écrite nulle part : elle est recalculée.
+- **Cohérence** : une personne peut avoir plusieurs lignées si chacune descend de l'autre. Si titi → tutu, tata peut être de titi et de tutu. Deux lignées dont aucune ne descend de l'autre ne s'accordent pas : pointillés rouges, comme pour un second sire, et un avertissement sur la fiche.
+
+**Filiations → Lignages**
+- **Point de départ** : une personne ou une lignée (*Point de départ…*, la recherche, *Partir d'ici*). L'écran montre ses ascendants et toute sa descendance, plus rien d'autre. *Tout afficher* montre tous les lignages.
+- Les lignées sont des cases violettes. Traits gris : sire → infant (plein : sûr ; pointillés : incertain). Traits violets : lignée (plein : déclarée ; pointillés : déduite d'un infant). Rouge : second sire, ou lignées qui ne s'accordent pas.
+- Le panneau d'une personne montre ses sires, ses infants et ses lignées : déclarées, avec leur note, ou déduites, de quel infant. Il propose *+ Sire*, *+ Infant*, *+ Lignée*.
+- Le panneau d'une lignée montre sa lignée d'origine, les lignées issues, les membres déclarés et déduits. Il propose *+ Membre* et *+ Lignée d'origine*.
+- **← Enquête** pour revenir.
+- **Exporter (Markdown)** copie le lignage affiché dans le presse-papiers : l'arbre en liste avec des [[liens]], la source de chaque lien, puis les points à vérifier. Il se colle tel quel dans une note d'Obsidian.
+
+**Fiche de personnage** : une section *Lignées* (déclarées, déduites, incohérentes), avec *+ Lignée* et *Voir le lignage*.
+
+**Graphe des relations**
+- Les lignées déduites apparaissent en pointillés violets ; celles qui ne s'accordent pas, en rouge.
+- **Liens affichés ▾**, dans la barre : cocher ou décocher toutes les relations, ou chacune (y compris celles de votre coffre : amant, maître de goule, enquête sur…). Le menu règle aussi les indices, faveurs, clan, secte, sire, lignées déduites et « vus ensemble ».
+
+**La croix × dans les fiches**
+- Une croix à côté de chaque ligne de « Ce que disent vos sources » : information, relation, reconnaissance ou sobriquet, discipline constatée, lignée déclarée, présence, membre, indice d'un dossier…
+- **Seule la chose visée est retirée**, après une confirmation qui dit quoi et où :
+  - une information : sa seule ligne (et ses sous-points) dans sa note. Si un indice ou un dossier la cite, la confirmation le dit ;
+  - un lien : le seul présent d'une soirée, le seul sujet, participant, clan, domaine… La propriété garde le reste ;
+  - une faveur, ou un indice qui porte la relation : la note part à la corbeille.
+- **Rien ne disparaît en silence** : Réglages → Corbeille → *Lignes retirées* liste ce qui a été retiré, et *Restaurer* le remet dans sa note.
+
+**Sur votre coffre du 29 octobre** (8 559 notes)
+- 48 lignages et 67 liens sire → infant ; 32 lignées.
+- La lignée de Karios : 9 membres déclarés, la lignée de Macrin qui en est issue, leurs infants.
+- **3 personnes aux lignées qui ne s'accordent pas** : Karios, Istvan et Monsieur K. Monsieur K est déclaré de la lignée d'Istvan et de celle de Dimitrius, et Istvan de celle de Karios. Rien ne dit qu'une de ces lignées est issue d'une autre. Si la lignée d'Istvan descend de celle de Karios, notez-le : le rouge disparaîtra.
+- Le graphe calcule les lignées déduites en une seconde environ la première fois, puis les garde tant que rien ne change.
+
+## 4. La 0.18 : filiations, lignées
 
 **Lignées : on y entre comme dans une faction**
 - *+ Membre* sur une lignée note une information « est membre de » (ou « dirige ») dans la source choisie. Le `clan` de la fiche du personnage reste son clan.
@@ -25,7 +146,7 @@ La 0.18 dessine les **filiations** en arbres (sires et infants, clans et lignée
 
 **Sur votre coffre** (6 660 notes) : 18 lignages et 22 liens sire → infant, le plus grand étant celui du Comte Francois Aubusson de La Feuillade (4 personnes sur 3 générations) ; 18 clans et 21 lignées, dont deux sans clan connu (Filles de la Cacophonie, Gargouilles). Le calcul prend environ 0,5 s.
 
-## 2. La 0.17 : les « + » des fiches
+## 5. La 0.17 : les « + » des fiches
 
 **Membres d'un groupe**
 - La section *Membres connus* liste désormais :
@@ -62,7 +183,7 @@ La 0.18 dessine les **filiations** en arbres (sires et infants, clans et lignée
 - Après l'ajout, la fiche est relue : le nouveau membre, la relation ou la présence apparaît aussitôt, avec un message qui dit où c'est écrit.
 - Une fiche en cours de modification est d'abord enregistrée.
 
-## 3. La 0.16 : les statistiques
+## 6. La 0.16 : les statistiques
 
 **Où** : Enquête → *Statistiques*. Deux onglets, *Personnages* et *Informations*. Rien n'est écrit dans le coffre ; *Recalculer* relit l'index après une synchronisation.
 
@@ -111,7 +232,7 @@ La 0.18 dessine les **filiations** en arbres (sires et infants, clans et lignée
 - `valider.py` l'accepte, et la liste de choix de la fiche le propose.
 - La préparation de séance écarte les personnes en torpeur, comme les disparus et les morts.
 
-## 4. La 0.15 : les hypothèses concurrentes
+## 7. La 0.15 : les hypothèses concurrentes
 
 **La méthode**
 - On ne retient pas l'hypothèse qui a le plus de confirmations, mais celle qui est **la moins contredite**.
@@ -144,7 +265,7 @@ La 0.18 dessine les **filiations** en arbres (sires et infants, clans et lignée
 - Vos dossiers n'ont pas encore d'indices. Ouvrez-en un, par exemple « Qu'est-ce que l'hématothèque, et qui y a accès ? ».
 - Écrivez deux ou trois hypothèses avec *+ Hypothèse*, puis jugez les éléments que vous ajoutez.
 
-## 5. La 0.14 : à trancher, questions pour la soirée
+## 8. La 0.14 : à trancher, questions pour la soirée
 
 **Enquête → À trancher** (nouvel onglet)
 
@@ -186,7 +307,7 @@ L'application repère ce que vos notes disent de contradictoire :
 - Le curseur est dans le premier champ (le nom d'un personnage) ; **Entrée** crée la note.
 - « À compléter » n'apparaît qu'après une première saisie ou un essai de création.
 
-## 6. La 0.13 : lisibilité, suite
+## 9. La 0.13 : lisibilité, suite
 
 **Recherche au clavier** (Fiches)
 - **Ctrl+F**, quelques lettres, puis **Entrée** : la première fiche trouvée s'ouvre.
@@ -216,7 +337,7 @@ L'application repère ce que vos notes disent de contradictoire :
 - Sur votre coffre, pour Grenoble : 5 alertes au lieu de 21, et 67 personnes probables au lieu de 422.
 - *Son rapport* ouvre directement le rapport de la dernière soirée.
 
-## 7. La 0.12 : corbeille et lisibilité
+## 10. La 0.12 : corbeille et lisibilité
 
 **Supprimer une note**
 - Bouton **Supprimer…**, en rouge, sur une note. La confirmation dit combien de notes la citent encore : leurs liens mèneront à une note absente.
@@ -268,7 +389,7 @@ L'application repère ce que vos notes disent de contradictoire :
   - *Compte rendu* ouvre la source.
 - Elles ne sont plus répétées dans les informations.
 
-## 8. La 0.11 : les alibis
+## 11. La 0.11 : les alibis
 
 L'application calcule **où était chacun**, d'après vos notes. Elle n'écrit rien.
 
@@ -319,7 +440,7 @@ L'application calcule **où était chacun**, d'après vos notes. Elle n'écrit r
 - Donnez une date au jour près quand vous la connaissez.
 - Pour un témoignage (« X était aux docks ce soir-là »), ajoutez un élément « était présent à » avec la date des faits.
 
-## 9. La 0.10 : la fiabilité calculée des informateurs
+## 12. La 0.10 : la fiabilité calculée des informateurs
 
 L'application **propose** la lettre A–F d'un personnage comme informateur, d'après ce qu'il a affirmé et ce qu'il en est advenu. Elle n'écrit rien sans votre accord.
 
@@ -354,7 +475,7 @@ L'application **propose** la lettre A–F d'un personnage comme informateur, d'a
 - Dans **Enquête → Informateurs** : tous les informateurs. Ceux dont la lettre proposée diffère de la fiche viennent d'abord, en or.
 - **Appliquer** écrit la lettre dans la fiche (propriété `fiabilite`), qui sert ensuite aux chemins probables.
 
-## 10. La 0.9 : les alertes
+## 13. La 0.9 : les alertes
 
 **Où les voir**
 - Sur l'**accueil**, une carte rouge : le nombre d'alertes, dont les urgentes, et les cinq premières.
@@ -388,7 +509,7 @@ L'application **propose** la lettre A–F d'un personnage comme informateur, d'a
 - Ce qui a été vu est retenu sur chaque ordinateur ; la note n'est pas modifiée pour cela.
 - **Ne plus surveiller** retire l'étiquette.
 
-## 11. La 0.8 : version PC, plein écran
+## 14. La 0.8 : version PC, plein écran
 
 **PC seulement, en plein écran**
 - L'application démarre en plein écran. **F11**, ou Réglages → *Plein écran / fenêtre*, bascule ; le choix est retenu.
@@ -411,7 +532,7 @@ L'application **propose** la lettre A–F d'un personnage comme informateur, d'a
 - Point plein : date exacte. Cercle : date approximative ou incertaine. Un trait sur la ligne marque le changement d'année.
 - Les dates en tête des noms de notes (« 2026-10-12 Gazette… ») ne sont plus affichées dans la chronologie.
 
-## 12. Rappel de la 0.7
+## 15. Rappel de la 0.7
 
 **Listes « nature » des sources**
 - Chaque nature est précédée de sa fiabilité par défaut : « B · Note personnelle », « C · Discord », « F · Analyse »…
@@ -496,7 +617,7 @@ Tout est facultatif, et aucune note existante ne change :
 
 `valider.py` les connaît.
 
-## 13. Installation
+## 16. Installation
 
 1. Décompressez l'archive à la place de l'ancienne.
 2. Ouvrez `project.godot` dans Godot 4.7.x.
@@ -505,20 +626,35 @@ Tout est facultatif, et aucune note existante ne change :
 
 L'index ne change pas de version : pas de reconstruction au premier lancement.
 
-## 14. Ce que j'ai vérifié de mon côté
+## 17. Ce que j'ai vérifié de mon côté
 
-- **743 vérifications automatiques** réussies.
-  - Filiations : liens tirés de la fiche, des informations et d'un indice ; rumeur improbable écartée ; deux sources pour un même lien ; lien incertain ; familles, générations, second sire signalé ; clans, lignées et lignées sans clan.
-  - Lignée : une fiche qui porte la lignée en clan apparaît comme « lignée (fiche) ».
-  - Ajouts depuis les fiches, statistiques, hypothèses concurrentes, points à trancher, préparation de séance, corbeille, rapport de soirée, alibis, alertes, `valider.py` 1.5.
-- **Parcours automatique de l'interface** en 1920 × 1080 : 172 vérifications réussies, dont :
-  - « + Membre » sur une lignée : une information, le clan de la fiche inchangé ;
-  - Filiations : écran vide, « + Infant » préréglé, l'arbre redessiné, la recherche, l'onglet Clans et lignées ouvert depuis une fiche de clan ;
-  - les « + » des fiches, les statistiques, le tableau des hypothèses, la corbeille.
-- **Sur une copie de votre coffre** : les arbres ci-dessus, en 0,5 s.
-- **Pas vérifié** : l'affichage sur votre écran (taille, mise à l'échelle) et le presse-papiers de Windows.
+- **844 vérifications automatiques** réussies.
+  - Chef de lignée (0.21) :
+    - lecture du chef ; mention ;
+    - déduction arrêtée au chef ; lignées d'origine déduites des chefs ;
+    - plus de case pour la lignée, liens partis du chef, sans double trait ;
+    - recherche par la lignée ; graphe (mention, lien passé au chef, option) ;
+    - proposition d'après le nom (article, alias, homonyme du clan) ;
+    - *À compléter* et *Renseigner* ;
+    - création d'une lignée avec son chef.
+  - Réparations (0.20) :
+    - noms mal encodés réparés, accents ordinaires intacts ;
+    - nature d'un groupe d'après son nom, à la création comme dans « À réparer » ;
+    - renommage refusé si le nom est pris ;
+    - doublons d'orthographe, sans les homonymes « Nom (Ville) ».
+  - Lignées : « est de la lignée de » et « est membre de » une lignée ; lignée issue d'une autre ; déduction vers le sire, arrêtée au sire d'une lignée plus ancienne ; lignées qui s'accordent ou non ; traits déclarés, déduits, incohérents ; point de départ ; lignées d'une seule fiche.
+  - Croix × : une ligne et ses sous-points retirés, le reste intact ; élément sans identifiant retrouvé par son énoncé ; un seul présent retiré ; une valeur seule vidée ; citations repérées ; journal ; restauration d'une ligne et d'un lien.
+  - Toujours : filiations, ajouts depuis les fiches, statistiques, hypothèses, points à trancher, séance, corbeille, rapport, alibis, alertes, `valider.py` 1.6.
+- **Parcours automatique de l'interface** en 1920 × 1080 : 199 vérifications réussies, dont :
+  - le chef d'une lignée choisi depuis sa fiche, puis la case du chef dans les lignages (« Chef de la lignée… », plus de case pour la lignée), son panneau, et le graphe ;
+  - « À réparer » en tête des points à trancher ; *Passer en lignée* et *Renommer*, avec confirmation ; plus rien à réparer ensuite ;
+  - la section Lignées d'une fiche ; Filiations depuis une fiche (point de départ), « + Infant », l'arbre redessiné, l'export Markdown, la recherche, « Tout afficher », « ← Enquête » ;
+  - « Liens affichés » : une relation cachée, toutes cachées, réaffichées ;
+  - la croix d'une information (confirmation, ligne retirée, les autres intactes), un présent retiré, la restauration depuis les Réglages.
+- **Sur une copie de votre coffre du 29 octobre** : les points à réparer, la réparation des lignées, puis l'intégration du lot du 29 octobre et les lignages qui en résultent.
+- **Pas vérifié** : l'affichage sur votre écran (taille, mise à l'échelle) et le presse-papiers de Windows (export Markdown).
 
-## 15. Vos données
+## 18. Vos données
 
 - Le Markdown reste la seule source de vérité. L'index se reconstruit à tout moment.
 - Toute écriture est sûre :
@@ -527,12 +663,12 @@ L'index ne change pas de version : pas de reconstruction au premier lancement.
 - L'application n'efface aucune note d'elle-même. *Supprimer…* déplace la note dans la corbeille `.trash/`, d'où on la restaure ; seul l'effacement depuis la corbeille, après confirmation, supprime un fichier.
 - Elle ne modifie jamais une note à partir d'un lot : elle n'ajoute que des notes neuves.
 
-## 16. Arborescence
+## 19. Arborescence
 
 ```
 core/model/      types de notes, champs, listes de choix, noms de fichiers ; dates floues
-core/format/     propriétés, note, lignes structurées, identifiants
-core/storage/    accès au dossier, écriture sûre, corbeille
+core/format/     propriétés, note, lignes structurées, identifiants, noms mal encodés
+core/storage/    accès au dossier, écriture sûre, corbeille, lignes retirées
 core/index/      index SQLite, recherche, requêtes de l'enquête
 core/sync/       synchronisation et vérification
 core/analysis/   graphe, chemins probables, rapport de soirée, alertes, informateurs, alibis, points à trancher, hypothèses concurrentes, préparation de séance, statistiques, membres d'un groupe, filiations

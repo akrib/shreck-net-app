@@ -21,6 +21,7 @@ const AlibiView := preload("res://ui/widgets/alibi_view.gd")
 const SortTable := preload("res://ui/widgets/sort_table.gd")
 const FusionDialog := preload("res://ui/widgets/fusion_dialog.gd")
 const Informants := preload("res://core/analysis/informants.gd")
+const Contradictions := preload("res://core/analysis/contradictions.gd")
 
 const TABS := [["alertes", "Alertes"], ["trancher", "À trancher"], ["chrono", "Chronologie"], ["alibis", "Alibis"], ["faveurs", "Faveurs"], ["indices", "Indices"],
 	["dossiers", "Dossiers"], ["informateurs", "Informateurs"], ["taches", "À faire"]]
@@ -47,6 +48,8 @@ var _with_elements := true
 var _all_faveurs := false
 var _alibi_state := AlibiView.new_state()
 var _timer: Timer
+var _confirm: ConfirmationDialog
+var _pending_fix := {}
 
 
 func setup(p_app: Node, p_main: Control) -> void:
@@ -251,11 +254,12 @@ func _refresh_list() -> void:
 
 ## À trancher : ce que vos notes disent de contradictoire (deux endroits la même
 ## nuit, deux sires, alliés et ennemis, poste tenu deux fois, faveur et mort,
-## même personne ?). Rien n'est écrit ; « Écarter » vaut pour cet ordinateur.
+## même personne ?) et ce qu'il faut réparer (bouton, après confirmation).
+## « Écarter » vaut pour cet ordinateur.
 func _trancher() -> void:
 	var all: Array = app.contradictions()
 	var hidden: int = app.dismissed_contradictions().size()
-	_info.text = "%d point(s) à trancher. Calculé depuis vos notes, rien n'y est écrit : c'est à vous de corriger la fiche, de fusionner, ou d'écarter." % all.size()
+	_info.text = "%d point(s) à trancher. Calculé depuis vos notes : rien n'y est écrit sans vous. Corrigez la fiche, réparez, fusionnez ou écartez." % all.size()
 	if all.is_empty():
 		_list.add_child(UiKit.label("Rien à trancher : aucune contradiction trouvée dans vos notes." if hidden == 0 else "Rien à trancher (hors points écartés).", true, 16))
 	var kind := ""
@@ -274,7 +278,7 @@ func _trancher() -> void:
 				_refresh_list())]))
 
 
-const KIND_COLOR := {"deux_endroits": Color("ff7a6b"), "sire": Color("ff7a6b"), "relation": Color("e0b04a"),
+const KIND_COLOR := {"reparer": Color("9be3a8"), "completer": Color("b79cff"), "deux_endroits": Color("ff7a6b"), "sire": Color("ff7a6b"), "relation": Color("e0b04a"),
 	"poste": Color("e0b04a"), "faveur": Color("e0b04a"), "identite": Color("8fd3ff")}
 
 
@@ -295,12 +299,59 @@ func _contradiction_card(c: Dictionary) -> Control:
 					main.open_note(keep_rel)), "Aperçu de la fusion, puis confirmation ; rien n'est supprimé"))
 		"deux_endroits":
 			actions.add_child(UiKit.button("Voir la nuit", func(): main.show_alibis("nuit", str(who[1])), "Enquête → Alibis, cette nuit-là"))
+		"reparer", "completer":
+			var fix: Dictionary = c.get("fix", {})
+			if not fix.is_empty():
+				var b := UiKit.button(str(fix.label), func(): _ask_fix(fix), "Réparer, après confirmation")
+				b.add_theme_color_override("font_color", Color("9be3a8"))
+				actions.add_child(b)
 	var key := str(c.key)
 	actions.add_child(UiKit.button("Écarter", func():
 		app.dismiss_contradiction(key)
 		_refresh_list(), "Ce n'est pas une contradiction : ne plus l'afficher (sur cet ordinateur)"))
 	lines.append(actions)
 	return UiKit.card(lines, KIND_COLOR.get(str(c.kind), Color("c8b6ff")))
+
+
+## Réparation d'un point « À réparer » : confirmation, puis écriture vérifiée.
+func _ask_fix(fix: Dictionary) -> void:
+	if _confirm == null:
+		_confirm = UiKit.confirm_dialog()
+		_confirm.confirmed.connect(_do_fix)
+		add_child(_confirm)
+	_pending_fix = fix
+	var t := ""
+	match str(fix.action):
+		"nature":
+			t = "Passer %d groupe(s) en « %s » ?\n\nSeule la propriété « nature » de chaque note change (écriture vérifiée). Les membres déjà notés comptent aussitôt dans les filiations et les lignages." % [
+				(fix.paths as Array).size(), Contradictions.NATURE_LABEL.get(str(fix.value), str(fix.value))]
+		"chef":
+			var lines := PackedStringArray()
+			for x in (fix.pairs as Array).slice(0, 14):
+				lines.append("%s : %s" % [str(x[0]).get_file().get_basename(), x[1]])
+			t = "Renseigner le chef de %d lignée(s), d'après leur nom ?\n\n%s%s\n\nSeule la propriété « chef » de chaque fiche de lignée change. Un chef se retire ou se change sur la fiche de la lignée." % [
+				(fix.pairs as Array).size(), "\n".join(lines), "\n…" if (fix.pairs as Array).size() > 14 else ""]
+		"rename":
+			t = "Renommer %d fichier(s) ?\n\nChaque note garde son dossier, son contenu et son identifiant : seul le nom du fichier retrouve ses accents. Les liens qui visent déjà le bon nom fonctionnent ensuite." % (fix.pairs as Array).size()
+	UiKit.confirm(_confirm, t, "Réparer")
+
+
+func _do_fix() -> void:
+	var fix := _pending_fix
+	_pending_fix = {}
+	var r: Dictionary = {"done": [], "failed": []}
+	match str(fix.get("action", "")):
+		"nature":
+			r = app.repair_group_natures(fix.paths, str(fix.value))
+		"rename":
+			r = app.repair_file_names(fix.pairs)
+		"chef":
+			r = app.set_lignee_chefs(fix.pairs)
+	_refresh_list()
+	var msg := "Réparé : %d." % (r.done as Array).size()
+	if not (r.failed as Array).is_empty():
+		msg += " Refusé : %d (%s)." % [(r.failed as Array).size(), " ; ".join(PackedStringArray((r.failed as Array).slice(0, 3)))]
+	_info.text = msg + " " + _info.text
 
 
 func _alertes() -> void:

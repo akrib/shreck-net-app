@@ -403,6 +403,12 @@ func broken_links(limit := 100) -> Array:
 	return rows("SELECT f.path, l.line, l.target " + _BROKEN + " ORDER BY f.path, l.line LIMIT ?", [limit])
 
 
+## Empreinte du contenu de l'index : change dès qu'une note est ajoutée, modifiée ou retirée.
+func content_key() -> String:
+	var r: Array = rows("SELECT count(*) AS n, max(mtime) AS m, (SELECT count(*) FROM elements) AS e FROM files")
+	return "" if r.is_empty() else "%s|%s|%s" % [r[0].n, r[0].m, r[0].e]
+
+
 func stats() -> Dictionary:
 	var s := {"types": {}, "files": 0, "elements": 0, "movements": 0, "links": 0, "tasks_open": 0,
 		"errors": 0, "warnings": 0, "fts": fts}

@@ -27,11 +27,12 @@ const Alerts := preload("res://core/analysis/alerts.gd")
 const Contradictions := preload("res://core/analysis/contradictions.gd")
 const Hypotheses := preload("res://core/analysis/hypotheses.gd")
 const Trash := preload("res://core/storage/trash.gd")
+const Removals := preload("res://core/storage/removals.gd")
 
 ## Fichier des réglages. Les outils de test le redirigent avant de créer
 ## l'application, pour ne jamais toucher aux réglages réels.
 static var settings_file := "user://reglages.cfg"
-const VERSION := "0.18 (filiations)"
+const VERSION := "0.21 (chef de lignée)"
 
 var settings := ConfigFile.new()
 var repo: RefCounted = null          ## RepoAccess, ou null si non configuré
@@ -363,6 +364,11 @@ func create_note(type_name: String, values: Dictionary, text := "", from_quick :
 	if not Schema.TYPES.has(type_name):
 		return {"ok": false, "error": "type inconnu : " + type_name}
 	var v := values.duplicate()
+	if type_name == "groupe":
+		# « Lignée de X » créée à la volée : lignée, pas clan (la valeur par défaut)
+		var implied := Schema.group_nature_from_name(str(v.get("nom", "")))
+		if implied != "" and str(v.get("nature", "")) in ["", "clan"]:
+			v["nature"] = implied
 	var df := str(v.get("date_floue", "")).strip_edges()
 	if RegEx.create_from_string("^\\d{4}-\\d{2}-\\d{2}$").search(df) and str(v.get("date", "")) == "":
 		v["date"] = df  # une date exacte va dans « date » (FORMAT §7)
@@ -576,6 +582,131 @@ func add_element_line(dest: String, line: String) -> Dictionary:
 	return r
 
 
+# ------------------------------------------------------------------ suppressions ciblées (×)
+
+## Notes qui citent un élément (pour, contre, rapport, éléments examinés…) : [{path, name, type, origin}].
+func element_citations(rel: String, block: String) -> Array:
+	if index == null or block == "":
+		return []
+	var nm := rel.get_file().get_basename()
+	return index.rows("SELECT DISTINCT f.path, f.name, f.type, l.origin FROM links l JOIN files f ON f.fid = l.fid WHERE l.target_key = ? AND (l.sub = ? OR l.sub = ?) ORDER BY f.name_key",
+		[TextNorm.name_key(nm), "^" + block, block])
+
+
+func _now_iso() -> String:
+	var d := Time.get_datetime_dict_from_system()
+	return "%04d-%02d-%02d %02d:%02d" % [d.year, d.month, d.day, d.hour, d.minute]
+
+
+func _journal_add(entry: Dictionary) -> void:
+	var j := Removals.journal(repo)
+	j.append(entry)
+	var w: Dictionary = Removals.save_journal(repo, j)
+	if not w.ok:
+		_log("Journal des lignes supprimées non écrit : " + str(w.error))
+
+
+## Retire une seule ligne d'élément (et ses sous-points indentés) de sa note ;
+## la ligne est gardée dans le journal des lignes supprimées. L'élément est
+## retrouvé par son identifiant, sinon par son énoncé (unique dans la note).
+func remove_element(rel: String, block: String, text: String) -> Dictionary:
+	var r := read_note(rel)
+	if not r.ok:
+		return {"ok": false, "error": r.error}
+	var doc: RefCounted = r.doc
+	var e: Dictionary = Removals.find_element(r.parsed, block, text)
+	if e.has("error"):
+		return {"ok": false, "error": e.error}
+	if e.is_empty():
+		return {"ok": false, "error": "information introuvable : la note a changé, resynchronisez puis réessayez"}
+	var body: String = doc.body_for_edit()
+	var lines := body.split("\n")
+	var k: int = int(e.line) - doc.body_first_line
+	if k < 0 or k >= lines.size() or (str(e.block) != "" and not lines[k].contains("^" + str(e.block))):
+		return {"ok": false, "error": "information introuvable : la note a changé, resynchronisez puis réessayez"}
+	var span: Array = Removals.element_span(lines, k)
+	var c: Dictionary = Removals.cut(body, span[0], span[1])
+	doc.set_body(c.body)
+	var w := save_note(rel, doc, r.hash)
+	if not w.ok:
+		return w
+	_journal_add({"kind": "element", "date": _now_iso(), "rel": rel, "block": str(e.block), "text": str(e.text), "lines": Array(c.removed)})
+	_log("Ligne retirée de %s : %s" % [rel, str(e.text).left(80)])
+	w["removed"] = c.removed
+	return w
+
+
+## Retire le lien vers `target` de la propriété `key` d'une note (une liste ou une valeur seule).
+func remove_link(rel: String, key: String, target: String) -> Dictionary:
+	var r := read_note(rel)
+	if not r.ok:
+		return {"ok": false, "error": r.error}
+	var doc: RefCounted = r.doc
+	if not doc.can_edit_properties():
+		return {"ok": false, "error": "propriétés non modifiables"}
+	var cur: Variant = doc.properties().get(key)
+	var res: Array = Removals.without_link(cur, target)
+	if not res[1]:
+		return {"ok": false, "error": "« %s » n'est plus dans %s : resynchronisez" % [target, key]}
+	var err: String = doc.set_properties({key: res[0]})
+	if err != "":
+		return {"ok": false, "error": err}
+	var w := save_note(rel, doc, r.hash)
+	if w.ok:
+		_journal_add({"kind": "prop", "date": _now_iso(), "rel": rel, "key": key, "target": target, "list": typeof(cur) == TYPE_ARRAY})
+	return w
+
+
+## Lignes et liens retirés depuis les fiches, les plus récents d'abord : [{indice, entrée}].
+func removed_lines() -> Array:
+	if repo == null:
+		return []
+	var j := Removals.journal(repo)
+	var out := []
+	for i in range(j.size() - 1, -1, -1):
+		out.append({"i": i, "entry": j[i]})
+	return out
+
+
+## Remet une ligne ou un lien retiré à sa place (en fin de section Éléments pour une ligne).
+func restore_removed(i: int) -> Dictionary:
+	var j := Removals.journal(repo)
+	if i < 0 or i >= j.size():
+		return {"ok": false, "error": "entrée introuvable"}
+	var en: Dictionary = j[i]
+	var rel := str(en.get("rel", ""))
+	var r := read_note(rel)
+	if not r.ok:
+		return {"ok": false, "error": "la note « %s » n'existe plus (%s)" % [rel, r.error]}
+	var doc: RefCounted = r.doc
+	if str(en.get("kind", "")) == "prop":
+		var key := str(en.key)
+		var cur: Variant = doc.properties().get(key)
+		var link := "[[%s]]" % str(en.target)
+		var nv: Variant
+		if bool(en.get("list", false)) or typeof(cur) == TYPE_ARRAY:
+			var lst: Array = (cur if typeof(cur) == TYPE_ARRAY else ([] if cur == null or str(cur) == "" else [cur])).duplicate()
+			lst.append(link)
+			nv = lst
+		elif cur == null or str(cur) == "":
+			nv = link
+		else:
+			return {"ok": false, "error": "%s a changé depuis (%s) : rien n'est remplacé" % [key, str(cur)]}
+		var err: String = doc.set_properties({key: nv})
+		if err != "":
+			return {"ok": false, "error": err}
+	else:
+		var blk := str(en.get("block", ""))
+		if blk != "" and doc.body_for_edit().contains("^" + blk):
+			return {"ok": false, "error": "cette ligne est déjà dans la note"}
+		doc.set_body(StructuredLines.append_to_section(doc.body_for_edit(), "Éléments", "\n".join(PackedStringArray(en.get("lines", [])))))
+	var w := save_note(rel, doc, r.hash)
+	if w.ok:
+		j.remove_at(i)
+		Removals.save_journal(repo, j)
+	return w
+
+
 # ------------------------------------------------------------------ alertes
 
 ## Alertes du jour (échéances, faveurs en retard, sanctions, personnes surveillées).
@@ -680,6 +811,72 @@ func dismissed_contradictions() -> Dictionary:
 		for k in settings.get_section_keys("contradictions_ecartees"):
 			out[k] = true
 	return out
+
+
+## Réparation proposée par « À trancher » : passe des groupes dans la nature que
+## leur nom annonce (« Lignée de… » notée clan → lignée). Seule `nature` change.
+func repair_group_natures(paths: Array, nature: String) -> Dictionary:
+	var done := []
+	var failed := []
+	for rel in paths:
+		var r := set_note_properties(str(rel), {"nature": nature})
+		if r.ok:
+			done.append(str(rel))
+		else:
+			failed.append("%s : %s" % [str(rel).get_file().get_basename(), str(r.get("error", ""))])
+	_log("Nature « %s » : %d groupe(s) corrigé(s), %d refusé(s)." % [nature, done.size(), failed.size()])
+	return {"done": done, "failed": failed}
+
+
+## Proposition de « À trancher → À compléter » : écrit le chef de chaque lignée
+## (`pairs` : [[chemin de la lignée, nom du chef]…]). Seule `chef` change.
+func set_lignee_chefs(pairs: Array) -> Dictionary:
+	var done := []
+	var failed := []
+	for p in pairs:
+		var r := set_note_properties(str(p[0]), {"chef": "[[%s]]" % str(p[1])})
+		if r.ok:
+			done.append(str(p[0]))
+		else:
+			failed.append("%s : %s" % [str(p[0]).get_file().get_basename(), str(r.get("error", ""))])
+	_log("Chefs de lignée : %d renseigné(s), %d refusé(s)." % [done.size(), failed.size()])
+	return {"done": done, "failed": failed}
+
+
+## Réparation proposée par « À trancher » : rend leurs accents aux fichiers mal
+## encodés (`pairs` : [[chemin, chemin réparé]…], même dossier). Le contenu et
+## l'identifiant ne changent pas ; l'index suit le renommage à la synchronisation.
+func repair_file_names(pairs: Array) -> Dictionary:
+	var done := []
+	var failed := []
+	var git: String = repo.git_busy() if repo != null else "pas de coffre"
+	if git != "":
+		return {"done": done, "failed": ["opération en cours (%s) : réessayez dans un instant" % git]}
+	for p in pairs:
+		var src := str(p[0])
+		var dst := str(p[1])
+		var nm := dst.get_file().get_basename()
+		var other: String = index.path_of_name(nm) if index != null else ""
+		if src.get_base_dir() != dst.get_base_dir() or repo.exists(dst) or (other != "" and other != src):
+			failed.append("%s : le nom « %s » est déjà pris" % [src.get_file().get_basename(), nm])
+			continue
+		if not repo.exists(src):
+			failed.append("%s : fichier introuvable" % src)
+			continue
+		var err := DirAccess.rename_absolute(repo.abs_path(src), repo.abs_path(dst))
+		if err != OK or not repo.exists(dst):
+			failed.append("%s : %s" % [src.get_file().get_basename(), error_string(err)])
+			continue
+		done.append(dst)
+		_log("Renommé : %s → %s" % [src, dst])
+	if not done.is_empty():
+		if not background_jobs and index != null:
+			Scanner.new(repo, index).scan()
+		elif busy():
+			_sync_again = true
+		else:
+			start_sync()
+	return {"done": done, "failed": failed}
 
 
 func dismiss_contradiction(key: String) -> void:

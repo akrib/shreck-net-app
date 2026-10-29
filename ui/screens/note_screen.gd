@@ -57,6 +57,11 @@ var _el_cred_touched := false
 var _el_more := {}
 var _confirm: ConfirmationDialog
 var _pending := ""
+var _pending_remove := {}
+
+const KEY_LABELS := {"presents": "présents", "presents_incertains": "présents incertains", "absents": "absences remarquées",
+	"participants": "participants", "sujets": "sujets", "disciplines": "disciplines", "clan": "clan", "secte": "secte",
+	"domaine": "domaine", "indices": "indices du dossier", "chef": "chef de lignée"}
 
 
 func setup(p_app: Node, p_main: Control) -> void:
@@ -195,6 +200,9 @@ func _build() -> void:
 		if Schema.TYPES.has(t):
 			_side_col.add_child(UiKit.heading("Fiche"))
 			for f in Schema.prop_fields(t):
+				# le chef de lignée (1.7) ne concerne qu'une lignée
+				if t == "groupe" and f == "chef" and str(props.get("nature", "")) != "lignee" and str(props.get("chef", "")) == "":
+					continue
 				_add_typed(t, f, props)
 		var others := []
 		for key in doc.fm.order:
@@ -515,6 +523,56 @@ func open_new(type_name: String, preset: Dictionary) -> void:
 	main.new_note(type_name, preset)
 
 
+## × d'une ligne de la fiche : confirmation, puis seule la chose visée est retirée.
+## `spec` : {kind: "element", rel, block, text} (une ligne d'information), {kind: "prop",
+## rel, key, target} (un lien dans une propriété), {kind: "note", rel} (une note : corbeille).
+func confirm_remove(spec: Dictionary) -> void:
+	if doc == null:
+		return
+	if _dirty:
+		save()
+		if _dirty:
+			return
+	_pending_remove = spec
+	var where := str(spec.get("rel", "")).get_file().get_basename()
+	var t := ""
+	match str(spec.kind):
+		"element":
+			t = "Supprimer cette information ?\n\n« %s »\n\nSeule cette ligne est retirée de « %s » (avec ses sous-points). Elle reste récupérable : Réglages → Corbeille → Lignes retirées." % [
+				Schema.display_text(str(spec.text)).strip_edges(), where]
+			var cites: Array = app.element_citations(str(spec.rel), str(spec.get("block", "")))
+			if not cites.is_empty():
+				var names := PackedStringArray()
+				for c in cites.slice(0, 6):
+					names.append(str(c.name))
+				t += "\n\nElle est citée par %s%s : ces liens deviendront des liens cassés (signalés dans le diagnostic)." % [", ".join(names), "…" if cites.size() > 6 else ""]
+		"prop":
+			t = "Retirer [[%s]] de « %s » (%s) ?\n\nSeul ce lien est retiré, rien d'autre dans la note. Il reste récupérable : Réglages → Corbeille → Lignes retirées." % [
+				str(spec.target), where, KEY_LABELS.get(str(spec.key), str(spec.key))]
+		"note":
+			t = "Mettre « %s » à la corbeille ?\n\nC'est toute la note (une faveur, un indice…). Elle part dans le dossier .trash du coffre, d'où on la restaure (Réglages → Corbeille)." % where
+	_ask("remove", t, "Supprimer")
+
+
+func _do_remove() -> void:
+	var sp := _pending_remove
+	_pending_remove = {}
+	var r: Dictionary = {}
+	match str(sp.get("kind", "")):
+		"element":
+			r = app.remove_element(str(sp.rel), str(sp.get("block", "")), str(sp.get("text", "")))
+		"prop":
+			r = app.remove_link(str(sp.rel), str(sp.key), str(sp.target))
+		"note":
+			if str(sp.rel) == rel:
+				r = {"ok": false, "error": "c'est la note ouverte : utilisez « Supprimer… » en haut"}
+			else:
+				r = app.trash_note(str(sp.rel))
+	if rel != "":
+		open(rel)
+	_set_status(("Supprimé ✓ (%s) — récupérable dans Réglages → Corbeille." % str(sp.rel).get_file().get_basename()) if r.get("ok", false) else "NON supprimé : " + str(r.get("error", "?")))
+
+
 # ------------------------------------------------------------------ fusion, identifiants
 
 func _merge() -> void:
@@ -771,6 +829,8 @@ func _on_confirmed() -> void:
 		"comments":
 			_comments_ok = true
 			save()
+		"remove":
+			_do_remove()
 		"trash":
 			var name := note_name()
 			var r: Dictionary = app.trash_note(rel, hash)
@@ -792,6 +852,24 @@ func _on_confirmed() -> void:
 func _reload() -> void:
 	open(rel)
 	_set_status("Rechargée depuis le disque.")
+
+
+## Écrit un lien dans une propriété de la note ouverte (le chef d'une lignée…),
+## par l'écriture sûre, puis recharge la note.
+func set_link_property(key: String, target: String) -> void:
+	if doc == null or target == "":
+		return
+	if _dirty:
+		save()
+		if _dirty:
+			return
+	var r: Dictionary = app.set_note_properties(rel, {key: "[[%s]]" % target})
+	open(rel)
+	_set_status(("Enregistré ✓ — %s : %s" % [KEY_LABELS.get(key, key), target]) if r.ok else "Refusé : " + str(r.get("error", "")))
+
+
+func pick_link_property(key: String, types: Array, title: String) -> void:
+	Picker.open_in(main, app, title, "notes", types, func(v): set_link_property(key, Schema.link_name(v)))
 
 
 # ------------------------------------------------------------------ brouillons

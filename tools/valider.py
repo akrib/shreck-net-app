@@ -89,6 +89,7 @@ RELATIONS_DEFAUT = {
     "membre_de": {"de": ["personnage"], "vers": ["groupe"]},
     "dirige": {"de": ["personnage"], "vers": ["groupe", "domaine", "lieu"]},
     "sire_de": {"de": ["personnage"], "vers": ["personnage"]},
+    "lignee_de": {"de": ["personnage", "groupe"], "vers": ["groupe"]},  # format 1.6
     "mentor_de": {"de": ["personnage"], "vers": ["personnage"]},
     "contact_de": {"de": ["personnage"], "vers": ["personnage"]},
     "sert": {"de": ["personnage"], "vers": ["personnage", "groupe"]},
@@ -129,6 +130,8 @@ TYPES_PROPRIETES = {
     # format 1.3
     "preseance": LISTE, "rapport": LISTE, "fusionnee_dans": TEXTE, "ancien_type": TEXTE,
     "ancien_id": TEXTE, "date_fusion": DATE,
+    # format 1.7
+    "chef": TEXTE,
 }
 # Propriétés qui doivent contenir un lien (et type attendu de la cible).
 PROPS_LIEN = {
@@ -137,6 +140,7 @@ PROPS_LIEN = {
     "rapporteur": ["personnage"], "soiree": ["soiree"], "de": None, "vers": None,
     "secte": ["groupe"], "fusionnee_dans": None,
     "debiteur": ["personnage"], "creancier": ["personnage"], "harpie": ["personnage"],
+    "chef": ["personnage"],  # format 1.7 : chef d'une lignée
 }
 PROPS_LISTE_LIENS = {
     "peut_etre": ["personnage"], "presents": ["personnage"],
@@ -150,7 +154,7 @@ SPEC_TYPES = {
     "personnage": {"oblig": [], "autorisees": ["clan", "domaine", "statut", "sanctions", "identite",
                                               "peut_etre", "sire", "titres", "fiabilite", "nature",
                                               "secte", "rang", "generation", "disciplines", "influences"]},
-    "groupe": {"oblig": [], "autorisees": ["nature", "domaine", "clan", "secte", "disciplines"]},
+    "groupe": {"oblig": [], "autorisees": ["nature", "domaine", "clan", "secte", "disciplines", "chef"]},
     "domaine": {"oblig": [], "autorisees": ["region", "preseance"]},
     "lieu": {"oblig": [], "autorisees": ["nature", "domaine"]},
     "objet": {"oblig": [], "autorisees": ["nature", "detenteur", "lieu"]},
@@ -760,6 +764,9 @@ class Validateur:
         for cle in spec["oblig"]:
             if fm.get(cle) in (None, "", []):
                 self.rapport.erreur(rel, 2, f"propriété obligatoire manquante : {cle}")
+        # chef de lignée (1.7) : seulement sur une lignée
+        if t == "groupe" and fm.get("chef") not in (None, "") and fm.get("nature") != "lignee":
+            self.rapport.avert(rel, self._ligne(n, "chef"), "chef : réservé à une lignée (nature: lignee)")
         # dates
         a_date, a_floue = fm.get("date") not in (None, ""), fm.get("date_floue") not in (None, "")
         if a_date and a_floue:

@@ -11,6 +11,7 @@ const Dates := preload("res://core/model/dates.gd")
 const Where := preload("res://core/analysis/whereabouts.gd")
 const AlibiView := preload("res://ui/widgets/alibi_view.gd")
 const Members := preload("res://core/analysis/members.gd")
+const Lineage := preload("res://core/analysis/lineage.gd")
 
 const ACTIVE_FAVEURS := ["active", "reclamee", "suspendue"]
 
@@ -23,11 +24,13 @@ static func build(app: Node, main: Control, rel: String, name: String, type_name
 			_statut(app, main, col, name, rel)
 			_disciplines(app, main, col, name, rel)
 			_presences(app, main, col, name, wide)
+			_lignees(app, main, col, name)
 			_relations(app, main, col, name)
 			_faveurs(app, main, col, name)
 			_indices(app, main, col, name)
 			_mentions(app, main, col, name, wide)
 		"groupe":
+			_chef(app, main, col, name, rel)
 			_members(app, main, col, name)
 			_relations(app, main, col, name)
 			_indices(app, main, col, name)
@@ -101,11 +104,33 @@ static func _plus_new(main: Control, inner: VBoxContainer, text: String, tip: St
 	fold.add_title_bar_control(b)
 
 
-static func _row(main: Control, inner: VBoxContainer, text: String, path: String) -> void:
-	var b := UiKit.button(text, func(): main.open_note(path))
+## Une ligne de section : un appui ouvre la note ; `rm` (facultatif) ajoute une croix
+## qui supprime seulement cette ligne ou ce lien, après confirmation (note_screen.confirm_remove).
+static func _row(main: Control, inner: VBoxContainer, text: String, path: String, rm := {}) -> void:
+	var b := UiKit.button(text, func():
+		if path != "":
+			main.open_note(path))
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	inner.add_child(b)
+	if rm.is_empty() or not main.screens.has("note"):
+		inner.add_child(b)
+		return
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var x := Button.new()
+	x.text = "×"
+	x.flat = true
+	x.focus_mode = Control.FOCUS_NONE
+	x.tooltip_text = "Supprimer seulement ceci (après confirmation)"
+	x.custom_minimum_size = Vector2(UiKit.TOUCH, UiKit.TOUCH)
+	x.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	x.add_theme_color_override("font_color", Color("ff9b8a"))
+	x.add_theme_font_size_override("font_size", 20)
+	x.pressed.connect(func(): main.screens.note.confirm_remove(rm))
+	inner.add_child(UiKit.hbox([b, x], 4))
+
+
+static func _rm_el(r: Dictionary) -> Dictionary:
+	return {"kind": "element", "rel": str(r.path), "block": str(r.get("block", "") if r.get("block") != null else ""), "text": str(r.get("text", ""))}
 
 
 static func _fields(r: Dictionary) -> Dictionary:
@@ -141,10 +166,10 @@ static func _statut(app: Node, main: Control, col: VBoxContainer, name: String, 
 				n_reco += 1
 			elif code == "sobriquet":
 				n_sobr += 1
-			recus.append(["%s%s — par %s (%s, %s)" % [what.capitalize(), (" « %s »" % qual) if qual != "" else "", de, r.note, _cred(r.cred)], r.path])
+			recus.append(["%s%s — par %s (%s, %s)" % [what.capitalize(), (" « %s »" % qual) if qual != "" else "", de, r.note, _cred(r.cred)], r.path, _rm_el(r)])
 		elif str(r.de_key) == k:
 			donnes.append(["A donné %s%s à %s (%s)" % [("le sobriquet" if code == "sobriquet" else ("une reconnaissance" if code == "reconnait" else "un poste")),
-				(" « %s »" % qual) if qual != "" else "", vers, r.note], r.path])
+				(" « %s »" % qual) if qual != "" else "", vers, r.note], r.path, _rm_el(r)])
 	var inner := _section(col, "Statut : reconnaissances, sobriquets, postes", recus.size() + donnes.size())
 	_plus(main, inner, "+ Statut", "Une reconnaissance, un sobriquet ou une nomination reçus, notés comme information dans la source de votre choix", {"kind": "statut"})
 	var pr: Dictionary = app.index.props_of(rel)
@@ -164,9 +189,9 @@ static func _statut(app: Node, main: Control, col: VBoxContainer, name: String, 
 	if n_sobr >= 2 and n_reco == 0 and t_list.is_empty() and str(pr.get("rang", "")) in ["nouveau_ne", "infant"]:
 		inner.add_child(UiKit.warn("Deux sobriquets sans reconnaissance ni poste : selon les règles (p. 796), un Nouveau-né dans ce cas peut être déclaré Paria si son clan le décide. Simple rappel, à vous d'en juger."))
 	for x in recus:
-		_row(main, inner, x[0], x[1])
+		_row(main, inner, x[0], x[1], x[2])
 	for x in donnes:
-		_row(main, inner, x[0], x[1])
+		_row(main, inner, x[0], x[1], x[2])
 
 
 ## Disciplines connues ou constatées, et clans dont les disciplines de clan
@@ -179,7 +204,7 @@ static func _disciplines(app: Node, main: Control, col: VBoxContainer, name: Str
 	for x in (d if typeof(d) == TYPE_ARRAY else ([] if d == null or str(d) == "" else [d])):
 		var n := Schema.link_name(x)
 		if n != "":
-			known[TextNorm.fold(n)] = [n, "fiche", ""]
+			known[TextNorm.fold(n)] = [n, "fiche", "", {"kind": "prop", "rel": rel, "key": "disciplines", "target": n}]
 	var seen_paths := {}
 	for r in app.index.elements_mentioning(name, 400):
 		var f := _fields(r)
@@ -188,7 +213,7 @@ static func _disciplines(app: Node, main: Control, col: VBoxContainer, name: Str
 			continue
 		seen_paths[str(r.path) + str(r.block)] = true
 		if not known.has(TextNorm.fold(n)) or known[TextNorm.fold(n)][1] == "fiche":
-			known[TextNorm.fold(n)] = [n, "constatée : " + Schema.display_text(str(r.text)).left(120) + " — " + str(r.note), str(r.path)]
+			known[TextNorm.fold(n)] = [n, "constatée : " + Schema.display_text(str(r.text)).left(120) + " — " + str(r.note), str(r.path), _rm_el(r)]
 	var communes := {}
 	for c in Schema.DISCIPLINES_COMMUNES:
 		communes[TextNorm.fold(c)] = true
@@ -200,10 +225,7 @@ static func _disciplines(app: Node, main: Control, col: VBoxContainer, name: Str
 	for k in known:
 		var info: Array = known[k]
 		var label := "%s%s — %s" % [info[0], "" if communes.has(k) else " (rare)", info[1]]
-		if str(info[2]) != "":
-			_row(main, inner, label, info[2])
-		else:
-			inner.add_child(UiKit.label(label))
+		_row(main, inner, label, str(info[2]), info[3])
 	# clans et lignées candidats
 	var cands := []
 	var have_clans := false
@@ -238,6 +260,86 @@ static func _disciplines(app: Node, main: Control, col: VBoxContainer, name: Str
 		_row(main, inner, "%s (%s) — %d discipline(s) en commun" % [c[1], "lignée" if c[3] == "lignee" else "clan", c[0]], c[2])
 
 
+## Personnage : ses lignées, déclarées (« est de la lignée de », « est membre de »
+## une lignée) ou déduites (la lignée d'un infant remonte à son sire).
+static func _lignees(app: Node, main: Control, col: VBoxContainer, name: String) -> void:
+	var pl: Dictionary = Lineage.person_lignees(app.index, name)
+	var ls: Dictionary = pl.lignees
+	var inner := _section(col, "Lignées", ls.size())
+	_plus(main, inner, "+ Lignée", "Noter de quelle lignée est cette personne, avec la source",
+		{"kind": "relation", "relation": "lignee_de", "dir": 0, "title": "Lignée de « %s »" % name})
+	if not (pl.bad as Array).is_empty():
+		inner.add_child(UiKit.warn("Lignées qui ne s'accordent pas : %s. Aucune ne descend de l'autre." % ", ".join(PackedStringArray(
+			(pl.bad as Array).map(func(k): return str(ls[k].name) if ls.has(k) else str(k))))))
+	var heads: Array = pl.get("heads", [])
+	if not heads.is_empty():
+		var hl := UiKit.label(Lineage.chef_mention(heads.map(func(h): return str(h.name))), false, 16)
+		hl.add_theme_color_override("font_color", Color("b79cff"))
+		inner.add_child(hl)
+	if ls.is_empty():
+		inner.add_child(UiKit.muted("Aucune lignée connue. « + Lignée » en note une ; celle d'un infant remonte d'elle-même à son sire."))
+	for lk in ls:
+		var m: Dictionary = ls[lk]
+		var how := "déclarée" if m.declared else "déduite de son infant " + ", ".join(PackedStringArray(m.via))
+		if m.declared and not (m.sources as Array).is_empty() and str(m.sources[0].origin) == "chef":
+			how = "chef de la lignée (fiche de la lignée)"
+		elif m.declared and not (m.sources as Array).is_empty():
+			var s: Dictionary = m.sources[0]
+			how += " ; selon %s%s" % ["sa fiche" if s.origin == "fiche" else s.label, "" if s.origin == "fiche" else " (%s)" % _cred(s.cred)]
+		var p: String = m.path if str(m.path) != "" else (str(m.sources[0].path) if not (m.sources as Array).is_empty() else "")
+		# une lignée déclarée par une seule note : la croix la retire ; déduite, elle disparaît d'elle-même avec sa cause
+		var rm := {}
+		if m.declared and (m.sources as Array).size() == 1:
+			var s0: Dictionary = m.sources[0]
+			match str(s0.origin):
+				"element":
+					rm = {"kind": "element", "rel": str(s0.path), "block": str(s0.get("block", "")), "text": str(s0.get("text", ""))}
+				"indice":
+					rm = {"kind": "note", "rel": str(s0.path)}
+				"fiche":
+					rm = {"kind": "prop", "rel": str(s0.path), "key": "clan", "target": str(m.name)}
+				"chef":
+					rm = {"kind": "prop", "rel": str(s0.path), "key": "chef", "target": name}
+		_row(main, inner, "%s — %s" % [m.name, how], p, rm)
+	if not ls.is_empty():
+		var nm := name
+		inner.add_child(UiKit.hbox([UiKit.button("Voir le lignage", func(): main.show_lineage("sires", nm), "Enquête → Filiations, à partir de cette personne")]))
+
+
+## Lignée : son chef (propriété `chef`, format 1.7), facultatif mais recommandé.
+## Sans chef : la proposition tirée du nom (« Lignée de Karios » : Karios), et le choix.
+static func _chef(app: Node, main: Control, col: VBoxContainer, name: String, rel: String) -> void:
+	var props: Dictionary = app.index.props_of(rel)
+	if str(props.get("nature", "")) != "lignee":
+		return
+	var chef := Schema.link_name(props.get("chef", ""))
+	var inner := _section(col, "Chef de lignée", 1 if chef != "" else 0)
+	var fold := inner.get_parent() as FoldableContainer
+	if fold != null:
+		fold.folded = false  # recommandé : la proposition reste en vue
+		if chef == "":
+			fold.title = "Chef de lignée — à renseigner (recommandé)"
+	var has_note: bool = main.screens.has("note")
+	if chef != "":
+		_row(main, inner, "%s — chef de la lignée" % chef, app.index.path_of_name(chef), {"kind": "prop", "rel": rel, "key": "chef", "target": chef})
+		inner.add_child(UiKit.muted("Dans les lignages et le graphe, la lignée est montrée par la case de son chef : « %s »." % Lineage.chef_mention([name])))
+	else:
+		inner.add_child(UiKit.muted("Non renseigné. C'est recommandé : la lignée est alors montrée par son chef dans les lignages et le graphe, et ses lignées d'origine se déduisent de celles du chef."))
+	if not has_note:
+		return
+	var row := UiKit.flow(6)
+	if chef == "":
+		for c in Lineage.chef_candidates(app.index, name, Schema.link_name(props.get("clan", ""))).slice(0, 1):
+			var cand := str(c)
+			var b := UiKit.button("Chef : %s (d'après le nom)" % cand, func(): main.screens.note.set_link_property("chef", cand),
+				"Écrire « chef: [[%s]] » dans cette fiche" % cand)
+			b.add_theme_color_override("font_color", Color("9be3a8"))
+			row.add_child(b)
+	row.add_child(UiKit.button("Changer de chef…" if chef != "" else "Choisir le chef…", func():
+		main.screens.note.pick_link_property("chef", ["personnage"], "Chef de « %s »" % name), "Un personnage, écrit dans cette fiche"))
+	inner.add_child(row)
+
+
 ## Groupe : membres (clan ou secte de leur fiche, éléments et indices « est
 ## membre de » ou « dirige »), lignées rattachées à un clan.
 static func _members(app: Node, main: Control, col: VBoxContainer, name: String) -> void:
@@ -255,7 +357,26 @@ static func _members(app: Node, main: Control, col: VBoxContainer, name: String)
 			else "Aucun membre connu. « + Membre » note qu'un personnage en est membre, ou le dirige, avec la source de l'information."))
 	for x in rows:
 		var p: String = x.path if str(x.path) != "" else (str(x.sources[0].path) if not x.sources.is_empty() else "")
-		_row(main, inner, Members.describe(x), p)
+		# ce qu'une croix peut retirer : le clan ou la secte de sa fiche, ou chaque information
+		var targets := []
+		if (x.roles as Array).has("chef"):
+			targets.append(["chef de lignée (fiche de la lignée)", app.index.path_of_name(name),
+				{"kind": "prop", "rel": app.index.path_of_name(name), "key": "chef", "target": str(x.name)}])
+		if x.from_fiche and str(x.path) != "":
+			for role in x.roles:
+				if role in ["clan", "lignee", "secte"]:
+					targets.append(["%s (fiche)" % {"clan": "clan", "lignee": "lignée", "secte": "secte"}[role], str(x.path),
+						{"kind": "prop", "rel": str(x.path), "key": "secte" if role == "secte" else "clan", "target": name}])
+		for src in x.sources:
+			var sp: Dictionary = {"kind": "note", "rel": str(src.path)} if str(src.get("origin", "")) == "indice" else \
+				{"kind": "element", "rel": str(src.path), "block": str(src.get("block", "")), "text": str(src.get("text", ""))}
+			targets.append(["selon %s (%s)" % [src.label, _cred(src.cred)], str(src.path), sp])
+		if targets.size() == 1:
+			_row(main, inner, Members.describe(x), p, targets[0][2])
+		else:
+			_row(main, inner, Members.describe(x), p)
+			for t in targets:
+				_row(main, inner, "   · %s — %s" % [x.name, t[0]], t[1], t[2])
 	if not lignees.is_empty():
 		var inner2 := _section(col, "Lignées", lignees.size())
 		for x in lignees:
@@ -311,7 +432,7 @@ static func _presences(app: Node, main: Control, col: VBoxContainer, name: Strin
 	if list.is_empty():
 		return
 	inner.add_child(UiKit.hbox([UiKit.button("Voir dans Enquête → Alibis", func(): main.show_alibis("personne", name), "Ligne de temps complète, nuits contradictoires")]))
-	inner.add_child(AlibiView.timeline(main, list, conf, not wide, 40))
+	inner.add_child(AlibiView.timeline(main, list, conf, not wide, 40, func(spec): main.screens.note.confirm_remove(spec)))
 	if list.size() > 40:
 		inner.add_child(UiKit.muted("… et %d autres (voir Enquête → Alibis)." % (list.size() - 40)))
 
@@ -337,7 +458,7 @@ static func _relations(app: Node, main: Control, col: VBoxContainer, name: Strin
 		var f := _fields(r)
 		var lib := Schema.option_label("", "relation", r.relation)
 		rows.append(["%s %s %s — %s, %s, %s" % [Schema.link_name(f.get("de", "")), lib, Schema.link_name(f.get("vers", "")),
-			Schema.option_label("element", "nature", r.nature).split(" (")[0].to_lower(), _cred(r.cred), r.note], r.path])
+			Schema.option_label("element", "nature", r.nature).split(" (")[0].to_lower(), _cred(r.cred), r.note], r.path, _rm_el(r)])
 	for n in app.index.notes_with_props("indice", ["relation", "de", "vers", "statut", "credibilite"]):
 		var pr: Dictionary = n.props
 		if str(pr.get("relation", "")) == "":
@@ -347,11 +468,11 @@ static func _relations(app: Node, main: Control, col: VBoxContainer, name: Strin
 		if de.to_lower() != name.to_lower() and vers.to_lower() != name.to_lower():
 			continue
 		rows.append(["%s %s %s — indice %s, %s" % [de, Schema.option_label("", "relation", pr.relation), vers,
-			Schema.option_label("indice", "statut", pr.get("statut", "")).to_lower(), _cred(pr.get("credibilite"))], n.path])
+			Schema.option_label("indice", "statut", pr.get("statut", "")).to_lower(), _cred(pr.get("credibilite"))], n.path, {"kind": "note", "rel": str(n.path)}])
 	var inner := _section(col, "Relations connues", rows.size())
 	_plus(main, inner, "+ Relation", "Allié, ennemi, membre, sire, mentor, contact… noté comme information dans la source de votre choix", {"kind": "relation"})
 	for x in rows:
-		_row(main, inner, x[0], x[1])
+		_row(main, inner, x[0], x[1], x[2])
 
 
 static func _faveurs(app: Node, main: Control, col: VBoxContainer, name: String) -> void:
@@ -366,12 +487,12 @@ static func _faveurs(app: Node, main: Control, col: VBoxContainer, name: String)
 		var st := str(pr.get("statut", ""))
 		var niv := Schema.option_label("faveur", "niveau", pr.get("niveau", "")).to_lower()
 		var txt := ("Doit une faveur %s à %s" % [niv, cre]) if deb.to_lower() == lk else ("%s lui doit une faveur %s" % [deb, niv])
-		rows.append([0 if ACTIVE_FAVEURS.has(st) else 1, "%s — %s" % [txt, Schema.option_label("faveur", "statut", st).to_lower()], n.path])
+		rows.append([0 if ACTIVE_FAVEURS.has(st) else 1, "%s — %s" % [txt, Schema.option_label("faveur", "statut", st).to_lower()], n.path, {"kind": "note", "rel": str(n.path)}])
 	rows.sort_custom(func(a, b): return a[0] < b[0])
 	var inner := _section(col, "Faveurs", rows.size())
 	_plus_new(main, inner, "+ Faveur", "Nouvelle note de faveur, « %s » en débiteur (à inverser dans le formulaire s'il est créancier)" % name, "faveur", {"debiteur": "[[%s]]" % name})
 	for x in rows:
-		_row(main, inner, x[1], x[2])
+		_row(main, inner, x[1], x[2], x[3])
 
 
 static func _indices(app: Node, main: Control, col: VBoxContainer, name: String) -> void:
@@ -382,12 +503,16 @@ static func _indices(app: Node, main: Control, col: VBoxContainer, name: String)
 			continue
 		seen[r.path] = true
 		var pr: Dictionary = app.index.props_of(r.path)
+		# la croix retire cette fiche des sujets ou des participants ; pour un indice dont c'est
+		# la relation (de, vers), c'est l'indice entier qui part à la corbeille
+		var key := str(r.origin).trim_prefix("propriété ")
+		var rm: Dictionary = {"kind": "prop", "rel": str(r.path), "key": key, "target": name} if key in ["sujets", "participants"] else {"kind": "note", "rel": str(r.path)}
 		rows.append(["%s — %s, %s" % [r.name, Schema.type_label(str(r.type)).to_lower(),
-			Schema.option_label(str(r.type), "statut", pr.get("statut", "")).to_lower()], r.path])
+			Schema.option_label(str(r.type), "statut", pr.get("statut", "")).to_lower()], r.path, rm])
 	var inner := _section(col, "Indices, événements et dossiers", rows.size())
 	_plus_new(main, inner, "+ Indice", "Nouvel indice (une affirmation à évaluer) dont « %s » est le sujet" % name, "indice", {"sujets": ["[[%s]]" % name]})
 	for x in rows:
-		_row(main, inner, x[0], x[1])
+		_row(main, inner, x[0], x[1], x[2])
 
 
 static func _mentions(app: Node, main: Control, col: VBoxContainer, name: String, wide := false) -> void:
@@ -398,7 +523,7 @@ static func _mentions(app: Node, main: Control, col: VBoxContainer, name: String
 		(inner.get_parent() as FoldableContainer).folded = false  # c'est le cœur de la fiche
 	for r in rows.slice(0, 40):
 		_row(main, inner, "%s\n— %s · %s · %s" % [Schema.display_text(str(r.text)).left(200), r.note,
-			Schema.option_label("element", "nature", r.nature).split(" (")[0].to_lower(), _cred(r.cred)], r.path)
+			Schema.option_label("element", "nature", r.nature).split(" (")[0].to_lower(), _cred(r.cred)], r.path, _rm_el(r))
 	if rows.size() > 40:
 		inner.add_child(UiKit.muted("… et %d autres (voir les rétroliens)." % (rows.size() - 40)))
 
@@ -407,7 +532,7 @@ static func _attached(app: Node, main: Control, col: VBoxContainer, name: String
 	var rows := []
 	for r in app.index.linked_from(name, ["domaine"]):
 		if str(r.type) == ty:
-			rows.append([str(r.name), r.path])
+			rows.append([str(r.name), r.path, {"kind": "prop", "rel": str(r.path), "key": "domaine", "target": name} if ty == "personnage" else {}])
 	rows.sort_custom(func(a, b): return a[0] > b[0] if ty == "soiree" else a[0] < b[0])
 	var inner := _section(col, title, rows.size())
 	match ty:
@@ -420,7 +545,7 @@ static func _attached(app: Node, main: Control, col: VBoxContainer, name: String
 		"faveur":
 			_plus_new(main, inner, "+ Faveur", "Nouvelle faveur enregistrée dans ce domaine", "faveur", {"domaine": "[[%s]]" % name})
 	for x in rows:
-		_row(main, inner, x[0], x[1])
+		_row(main, inner, x[0], x[1], x[2])
 
 
 # ------------------------------------------------------------------ soirées, faisceaux, dossiers
@@ -431,10 +556,10 @@ static func _reported_presences(app: Node, main: Control, col: VBoxContainer, na
 	for r in app.index.relations_of(name):
 		if str(r.relation) == "present_a" and str(r.vers_key) == k:
 			var f := _fields(r)
-			rows.append(["%s — selon %s (%s)" % [Schema.link_name(f.get("de", "")), r.note, _cred(r.cred)], r.path])
+			rows.append(["%s — selon %s (%s)" % [Schema.link_name(f.get("de", "")), r.note, _cred(r.cred)], r.path, _rm_el(r)])
 	var inner := _section(col, "Présences rapportées par d'autres sources", rows.size())
 	for x in rows:
-		_row(main, inner, x[0], x[1])
+		_row(main, inner, x[0], x[1], x[2])
 
 
 ## Pour un indice ou un événement : d'où viennent les éléments pour et contre.
@@ -486,14 +611,15 @@ static func _dossier(app: Node, main: Control, col: VBoxContainer, rel: String) 
 		if n == "":
 			continue
 		var p: String = app.index.path_of_name(n)
+		var rm := {"kind": "prop", "rel": rel, "key": "indices", "target": n}
 		if p == "":
-			rows.append(["%s — introuvable" % n, ""])
+			rows.append(["%s — introuvable" % n, "", rm])
 			continue
 		var ip: Dictionary = app.index.props_of(p)
-		rows.append(["%s — %s, %s" % [n, Schema.option_label("indice", "statut", ip.get("statut", "")).to_lower(), _cred(ip.get("credibilite"))], p])
+		rows.append(["%s — %s, %s" % [n, Schema.option_label("indice", "statut", ip.get("statut", "")).to_lower(), _cred(ip.get("credibilite"))], p, rm])
 	var inner := _section(col, "Indices du dossier", rows.size())
 	for x in rows:
 		if x[1] == "":
 			inner.add_child(UiKit.warn(x[0]))
 		else:
-			_row(main, inner, x[0], x[1])
+			_row(main, inner, x[0], x[1], x[2])

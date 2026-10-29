@@ -6,6 +6,7 @@ extends RefCounted
 
 const FlatYaml := preload("res://core/format/flat_yaml.gd")
 const Ids := preload("res://core/format/ids.gd")
+const TextNorm := preload("res://core/format/text_norm.gd")
 
 # ------------------------------------------------------------------ listes de choix
 
@@ -54,7 +55,7 @@ const ENUMS := {
 
 const RELATIONS := [["allie", "est allié de"], ["ennemi", "est ennemi de"], ["rival", "est rival de"],
 	["lie_a", "est lié à (nature inconnue)"], ["membre_de", "est membre de"], ["dirige", "dirige"],
-	["sire_de", "est le sire de"], ["mentor_de", "est le mentor de"], ["contact_de", "est un contact de"],
+	["sire_de", "est le sire de"], ["lignee_de", "est de la lignée de"], ["mentor_de", "est le mentor de"], ["contact_de", "est un contact de"],
 	["sert", "est au service de"], ["protege", "protège"], ["chantage", "fait chanter"],
 	["influence", "a de l'influence sur"], ["lien_de_sang", "est lié par le sang à"],
 	["present_a", "était présent à"], ["possede", "possède"], ["reside_a", "réside à"],
@@ -111,6 +112,7 @@ const FIELDS := {
 	"qualificatif": {"label": "Qualificatif (reconnaissance, sobriquet, poste)", "kind": "text"},
 	"discipline": {"label": "Discipline employée (pouvoir constaté)", "kind": "link", "targets": ["concept"], "natures": ["discipline"]},
 	"sire": {"label": "Sire", "kind": "link", "targets": ["personnage"]},
+	"chef": {"label": "Chef de lignée", "kind": "link", "targets": ["personnage"]},  # format 1.7 : lignée seulement
 	"detenteur": {"label": "Détenteur", "kind": "link", "targets": ["personnage", "groupe"]},
 	"auteur": {"label": "Auteur (en jeu)", "kind": "link", "targets": ["personnage", "groupe"]},
 	"rapporteur": {"label": "Transmis par", "kind": "link", "targets": ["personnage"]},
@@ -210,7 +212,8 @@ const TYPES := {
 		"defaults": {"date_floue": "$this_month", "statut": "non_verifie", "credibilite": 3, "domaine": "$last_domaine"},
 		"section": "Récit", "color": "f5e08a"},
 	"groupe": {"label": "Groupe", "desc": "Clan, faction, coterie", "prefix": "grp",
-		"fields": ["nom", "nature", "clan", "secte", "domaine", "disciplines"], "required": ["nom"], "defaults": {"nature": "clan"},
+		"fields": ["nom", "nature", "clan", "chef", "secte", "domaine", "disciplines"],
+		"form": ["nom", "nature", "clan", "secte", "domaine", "disciplines"], "required": ["nom"], "defaults": {"nature": "clan"},
 		"section": "Notes", "color": "8fd3ff"},
 	"lieu": {"label": "Lieu", "desc": "Refuge, Élysée, bar…", "prefix": "lie",
 		"fields": ["nom", "nature_libre", "domaine"], "required": ["nom"], "defaults": {"domaine": "$last_domaine"},
@@ -382,6 +385,21 @@ static func clean_name(s: String) -> String:
 
 
 ## Nom affiché d'un lien "[[Nom|texte]]" -> "Nom".
+## Nature d'un groupe que son nom annonce (« Lignée de Rogue » : lignee ;
+## « Faction Politique » : faction…), ou "" si le nom ne dit rien. Sert à ne pas
+## créer en « clan » (la valeur par défaut) une lignée ajoutée à la volée.
+const NAME_NATURES := [["lignee ", "lignee"], ["lignee d'", "lignee"], ["lignage ", "lignee"],
+	["faction ", "faction"], ["coterie ", "coterie"], ["meute ", "meute"]]
+
+
+static func group_nature_from_name(name: String) -> String:
+	var f := TextNorm.fold(name.strip_edges())
+	for p in NAME_NATURES:
+		if f.begins_with(str(p[0])):
+			return str(p[1])
+	return ""
+
+
 static func link_name(v: Variant) -> String:
 	var s := str(v if v != null else "").strip_edges()
 	if s.begins_with("[[") and s.ends_with("]]"):

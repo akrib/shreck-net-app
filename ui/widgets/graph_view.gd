@@ -7,6 +7,7 @@ extends Control
 signal node_selected(key: String)
 signal node_activated(key: String)
 
+const Lineage := preload("res://core/analysis/lineage.gd")
 const GraphData := preload("res://core/analysis/graph_data.gd")
 
 const IDEAL := 110.0
@@ -336,7 +337,7 @@ func _draw() -> void:
 		var rb := _radius(e.b) * zoom + 2
 		var start := a + dir * ra
 		var end := b - dir * rb
-		if e.kind == "faveur" or e.kind == "indice":
+		if e.kind == "faveur" or e.kind == "indice" or e.kind == "lignee":
 			draw_dashed_line(start, end, col, w, 6.0 if e.kind == "faveur" else 3.0, true, true)
 		else:
 			draw_line(start, end, col, w, true)
@@ -376,6 +377,19 @@ func _draw() -> void:
 		var tw := _font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		var tcol := Color(1, 1, 1, 0.35) if dim else Color("eae4f2")
 		draw_string(_font, p + Vector2(-tw / 2, r + fs + 2), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, tcol)
+		# chef de lignée : la lignée est montrée par lui (anneau violet, mention sous le nom)
+		var heads: Array = n.get("heads", [])
+		if not heads.is_empty():
+			var lc := Color("b79cff")
+			if dim:
+				lc.a = 0.35
+			draw_arc(p, r + 3, 0, TAU, 32, lc, 2.0, true)
+			var mention := Lineage.chef_mention(heads.map(func(h): return str(h.name)))
+			if mention.length() > 40:
+				mention = mention.left(38) + "…"
+			var fs2 := fs - 2
+			var mw := _font.get_string_size(mention, HORIZONTAL_ALIGNMENT_LEFT, -1, fs2).x
+			draw_string(_font, p + Vector2(-mw / 2, r + fs + fs2 + 6), mention, HORIZONTAL_ALIGNMENT_LEFT, -1, fs2, lc)
 	if _hover_pair != "":
 		_draw_pair_box()
 
